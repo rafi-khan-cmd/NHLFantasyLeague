@@ -1,0 +1,22 @@
+<mat-toolbar color="primary" class="main-toolbar">
+  <mat-icon style="margin-right: 12px; font-size: 32px; width: 32px; height: 32px;">dashboard</mat-icon>
+  <span class="title">{{ title }}</span>
+  <span style="flex: 1 1 auto;"></span>
+  <button mat-button routerLink="/dashboard" routerLinkActive="active">
+    <mat-icon>dashboard</mat-icon>
+    <span>Dashboard</span>
+  </button>
+  <button mat-button routerLink="/scenario-builder" routerLinkActive="active">
+    <mat-icon>build</mat-icon>
+    <span>Scenario Builder</span>
+  </button>
+  <button mat-button routerLink="/scenario-comparison" routerLinkActive="active">
+    <mat-icon>compare_arrows</mat-icon>
+    <span>Compare</span>
+  </button>
+</mat-toolbar>
+
+<div class="container">
+  <router-outlet></router-outlet>
+</div>
+

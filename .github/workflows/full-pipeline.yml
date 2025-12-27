@@ -1,0 +1,45 @@
+name: Full Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    uses: ./.github/workflows/backend-ci.yml
+    secrets: inherit
+  
+  frontend:
+    uses: ./.github/workflows/frontend-ci.yml
+    secrets: inherit
+  
+  databricks:
+    uses: ./.github/workflows/databricks-deploy.yml
+    secrets: inherit
+  
+  integration-test:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Start services
+      run: |
+        docker-compose -f docker/docker-compose.yml up -d
+    
+    - name: Wait for services
+      run: |
+        sleep 30
+    
+    - name: Run integration tests
+      run: |
+        echo "Integration tests would run here"
+        # Add actual integration test commands
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose -f docker/docker-compose.yml down
+

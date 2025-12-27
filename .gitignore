@@ -1,0 +1,74 @@
+# Compiled output
+/dist
+/tmp
+/out-tsc
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+*.log
+*.jar
+*.war
+*.ear
+target/
+.mvn/
+mvnw
+mvnw.cmd
+
+# Compiled resources (may contain sensitive data)
+backend/target/
+
+# Spring Boot
+application-local.properties
+application-dev.properties
+
+# Environment
+.env
+.env.local
+.env.*
+!.env.example
+
+# Databricks
+.databricks/
+
+# Kubernetes secrets
+*-secret.yaml
+
+# Logs
+logs/
+*.log
+
+# Frontend build output
+frontend/dist/
+frontend/.angular/
+
+# IDE specific files
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+

@@ -1,0 +1,104 @@
+<mat-card class="comparison-card">
+  <mat-card-header class="card-header">
+    <div class="header-content">
+      <mat-icon class="header-icon">compare_arrows</mat-icon>
+      <div>
+        <mat-card-title>Compare Scenarios</mat-card-title>
+        <mat-card-subtitle>Select and compare multiple scenarios side-by-side</mat-card-subtitle>
+      </div>
+    </div>
+  </mat-card-header>
+  <mat-card-content>
+    <div *ngIf="isLoading && scenarios.length === 0" class="loading">
+      <mat-spinner></mat-spinner>
+      <p>Loading scenarios...</p>
+    </div>
+
+    <div *ngIf="scenarios.length > 0">
+      <div class="section-header">
+        <mat-icon>checklist</mat-icon>
+        <h3>Select Scenarios to Compare</h3>
+      </div>
+      <div class="scenario-list">
+        <mat-card *ngFor="let scenario of scenarios" class="scenario-card">
+          <mat-card-content>
+            <div class="scenario-header">
+              <mat-checkbox 
+                [checked]="selectedScenarioIds.includes(scenario.id!)"
+                (change)="toggleScenarioSelection(scenario.id!)">
+              </mat-checkbox>
+              <div class="scenario-info">
+                <h4>{{ scenario.name }}</h4>
+                <p>{{ scenario.description }}</p>
+                <p class="status">Status: {{ scenario.status || 'Draft' }}</p>
+              </div>
+            </div>
+            <div class="scenario-actions">
+              <button 
+                mat-raised-button 
+                color="primary" 
+                (click)="runSimulationForScenario(scenario.id!)"
+                [disabled]="isRunningSimulation || runningJobIds[scenario.id!]">
+                {{ runningJobIds[scenario.id!] ? 'Running...' : 'Run Simulation' }}
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <div class="compare-actions">
+        <button 
+          mat-raised-button 
+          color="accent" 
+          (click)="compareSelectedScenarios()"
+          [disabled]="selectedScenarioIds.length < 2 || isLoading"
+          class="compare-button">
+          <mat-icon>analytics</mat-icon>
+          <span>Compare Selected Scenarios ({{ selectedScenarioIds.length }})</span>
+        </button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<mat-card *ngIf="comparisonResults.length > 0" style="margin-top: 20px;">
+  <mat-card-header>
+    <mat-card-title>Comparison Results</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <mat-table [dataSource]="comparisonResults" class="comparison-table">
+      <ng-container matColumnDef="scenarioName">
+        <mat-header-cell *matHeaderCellDef>Scenario</mat-header-cell>
+        <mat-cell *matCellDef="let result">{{ result.scenarioName }}</mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="totalCost">
+        <mat-header-cell *matHeaderCellDef>Total Cost</mat-header-cell>
+        <mat-cell *matCellDef="let result">${{ result.totalCost | number:'1.2-2' }}</mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="serviceLevel">
+        <mat-header-cell *matHeaderCellDef>Service Level</mat-header-cell>
+        <mat-cell *matCellDef="let result">{{ result.serviceLevel | number:'1.2-2' }}%</mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="inventoryCost">
+        <mat-header-cell *matHeaderCellDef>Inventory Cost</mat-header-cell>
+        <mat-cell *matCellDef="let result">${{ result.inventoryCost | number:'1.2-2' }}</mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="stockoutCost">
+        <mat-header-cell *matHeaderCellDef>Stockout Cost</mat-header-cell>
+        <mat-cell *matCellDef="let result">${{ result.stockoutCost | number:'1.2-2' }}</mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="onTimeDelivery">
+        <mat-header-cell *matHeaderCellDef>On-Time Delivery</mat-header-cell>
+        <mat-cell *matCellDef="let result">{{ result.metrics.onTimeDelivery | number:'1.2-2' }}%</mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="averageInventory">
+        <mat-header-cell *matHeaderCellDef>Avg Inventory</mat-header-cell>
+        <mat-cell *matCellDef="let result">{{ result.metrics.averageInventoryLevel | number:'1.0-0' }}</mat-cell>
+      </ng-container>
+
+      <mat-header-row *matHeaderRowDef="['scenarioName', 'totalCost', 'serviceLevel', 'inventoryCost', 'stockoutCost', 'onTimeDelivery', 'averageInventory']"></mat-header-row>
+      <mat-row *matRowDef="let row; columns: ['scenarioName', 'totalCost', 'serviceLevel', 'inventoryCost', 'stockoutCost', 'onTimeDelivery', 'averageInventory']"></mat-row>
+    </mat-table>
+  </mat-card-content>
+</mat-card>
+

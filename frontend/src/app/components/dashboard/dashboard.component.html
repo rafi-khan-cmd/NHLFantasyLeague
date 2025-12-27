@@ -1,0 +1,65 @@
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div class="header-content">
+      <mat-icon class="dashboard-icon">dashboard</mat-icon>
+      <div>
+        <h1>Supply Chain Digital Twin</h1>
+        <p class="subtitle">Monitor and analyze your supply chain scenarios</p>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="loading">
+    <mat-spinner></mat-spinner>
+    <p>Loading dashboard...</p>
+  </div>
+
+  <div *ngIf="!isLoading" class="dashboard-content">
+    <div class="stats-grid">
+      <mat-card class="stat-card stat-card-primary">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>folder</mat-icon>
+          </div>
+          <h2>{{ getTotalScenarios() }}</h2>
+          <p>Total Scenarios</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card stat-card-success">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>play_circle</mat-icon>
+          </div>
+          <h2>{{ getActiveScenarios() }}</h2>
+          <p>Active Scenarios</p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <mat-card class="recent-scenarios">
+      <mat-card-header>
+        <mat-card-title>Recent Scenarios</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-table [dataSource]="scenarios.slice(0, 5)" *ngIf="scenarios.length > 0">
+          <ng-container matColumnDef="name">
+            <mat-header-cell *matHeaderCellDef>Name</mat-header-cell>
+            <mat-cell *matCellDef="let scenario">{{ scenario.name }}</mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="description">
+            <mat-header-cell *matHeaderCellDef>Description</mat-header-cell>
+            <mat-cell *matCellDef="let scenario">{{ scenario.description }}</mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <mat-header-cell *matHeaderCellDef>Status</mat-header-cell>
+            <mat-cell *matCellDef="let scenario">{{ scenario.status || 'Draft' }}</mat-cell>
+          </ng-container>
+          <mat-header-row *matHeaderRowDef="['name', 'description', 'status']"></mat-header-row>
+          <mat-row *matRowDef="let row; columns: ['name', 'description', 'status']"></mat-row>
+        </mat-table>
+        <p *ngIf="scenarios.length === 0">No scenarios yet. Create your first scenario using the Scenario Builder.</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+

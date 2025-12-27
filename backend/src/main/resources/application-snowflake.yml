@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: supply-chain-digital-twin
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/supplychain
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: supply-chain-consumer
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+# Snowflake Configuration - Example configuration
+# Replace with your actual credentials via environment variables
+snowflake:
+  url: ${SNOWFLAKE_URL:jdbc:snowflake://YOUR_ACCOUNT.snowflakecomputing.com:443/?warehouse=COMPUTE_WH&db=SUPPLYCHAIN&schema=RAW}
+  username: ${SNOWFLAKE_USERNAME:YOUR_USERNAME}
+  password: ${SNOWFLAKE_PASSWORD:}
+  warehouse: COMPUTE_WH
+  database: SUPPLYCHAIN
+  schema: RAW
+
+# Databricks Configuration
+databricks:
+  workspace-url: ${DATABRICKS_WORKSPACE_URL:}
+  access-token: ${DATABRICKS_ACCESS_TOKEN:}
+  cluster-id: ${DATABRICKS_CLUSTER_ID:}
+
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+logging:
+  level:
+    com.supplychain: DEBUG
+    org.springframework.web: INFO
+

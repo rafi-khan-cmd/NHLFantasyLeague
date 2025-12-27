@@ -1,0 +1,53 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Build with Maven
+      working-directory: ./backend
+      run: mvn clean package -DskipTests
+    
+    - name: Run tests
+      working-directory: ./backend
+      run: mvn test
+    
+    - name: Build Docker image
+      working-directory: ./backend
+      run: |
+        docker build -t supplychain/backend:${{ github.sha }} .
+        docker tag supplychain/backend:${{ github.sha }} supplychain/backend:latest
+    
+    - name: Push to Docker Hub (if main branch)
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        docker push supplychain/backend:${{ github.sha }}
+        docker push supplychain/backend:latest
+    
+    - name: Deploy to Kubernetes (if main branch)
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "Deployment would happen here"
+        # kubectl set image deployment/backend backend=supplychain/backend:${{ github.sha }} -n supplychain-digital-twin
+
