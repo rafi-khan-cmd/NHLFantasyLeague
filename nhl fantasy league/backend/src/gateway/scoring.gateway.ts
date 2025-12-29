@@ -32,9 +32,14 @@ export class ScoringGateway implements OnGatewayConnection, OnGatewayDisconnect,
   onModuleInit() {
     // Subscribe to Redis pub/sub for scoring updates after module initialization
     setTimeout(() => {
-      this.redisService.subscribe('scoring:update', (message) => {
-        this.handleScoringUpdate(message);
-      });
+      const client = this.redisService.getClient();
+      if (client) {
+        this.redisService.subscribe('scoring:update', (message) => {
+          this.handleScoringUpdate(message);
+        });
+      } else {
+        console.log('⚠️  Redis not available - scoring pub/sub disabled');
+      }
     }, 1000);
   }
 
