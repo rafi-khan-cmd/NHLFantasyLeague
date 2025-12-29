@@ -38,8 +38,13 @@ export class EmailService {
     const code = this.generateVerificationCode();
     const cacheKey = `email:verification:${email}`;
     
-    // Store code in Redis with 10-minute expiration
-    await this.redisService.set(cacheKey, code, 600);
+    // Store code in Redis with 10-minute expiration (if Redis is available)
+    // If Redis is disabled, we'll still send the email and log the code
+    try {
+      await this.redisService.set(cacheKey, code, 600);
+    } catch (error) {
+      this.logger.warn('⚠️  Redis not available for storing verification code - code will be logged only');
+    }
 
     // Try to send email
     const smtpUser = this.configService.get<string>('SMTP_USER');

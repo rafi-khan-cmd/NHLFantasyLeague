@@ -21,20 +21,27 @@ export class AuthController {
 
   @Post('send-verification')
   async sendVerification(@Body() dto: SendVerificationDto) {
-    // Check if email is already registered
-    const existingUser = await this.userRepository.findOne({
-      where: { email: dto.email },
-    });
+    try {
+      // Check if email is already registered
+      const existingUser = await this.userRepository.findOne({
+        where: { email: dto.email },
+      });
 
-    if (existingUser) {
-      throw new BadRequestException('This email is already registered');
+      if (existingUser) {
+        throw new BadRequestException('This email is already registered');
+      }
+
+      const code = await this.emailService.sendVerificationCode(dto.email);
+      
+      return {
+        message: 'Verification code sent to your email. Please check your inbox (and server logs if SMTP is not configured).',
+        // In development or if SMTP fails, the code is logged to server console
+      };
+    } catch (error: any) {
+      // Log the error for debugging
+      console.error('Error sending verification code:', error);
+      throw new BadRequestException(error.message || 'Failed to send verification code. Please try again.');
     }
-
-    await this.emailService.sendVerificationCode(dto.email);
-    return {
-      message: 'Verification code sent to your email. Please check your inbox.',
-      // In development, the code is logged to server console
-    };
   }
 
   @Post('verify-email')
