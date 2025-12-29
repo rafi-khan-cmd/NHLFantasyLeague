@@ -34,6 +34,10 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 3001
 
-# Start the application
-CMD ["npm", "run", "start:prod"]
+# Copy startup script
+COPY railway-start.sh ./
+RUN chmod +x railway-start.sh
+
+# Start the application (use railway-start.sh to run migrations)
+CMD ["sh", "railway-start.sh"]
 

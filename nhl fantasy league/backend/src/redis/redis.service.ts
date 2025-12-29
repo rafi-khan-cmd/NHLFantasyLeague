@@ -11,19 +11,32 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private configService: ConfigService) {
     // CRITICAL: Check in constructor too - disable Redis immediately if in production without config
+    // Check multiple ways to detect production/Railway environment
     const redisUrl = this.configService.get('REDIS_URL');
     const host = this.configService.get('REDIS_HOST');
     const port = this.configService.get('REDIS_PORT');
-    const nodeEnv = this.configService.get('NODE_ENV') || process.env.NODE_ENV || 'production';
+    
+    // Check for Railway environment variables (Railway always sets these)
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT || 
+                     !!process.env.RAILWAY_SERVICE_NAME ||
+                     !!process.env.RAILWAY_PROJECT_ID ||
+                     !!process.env.RAILWAY_DEPLOYMENT_ID;
+    
+    // Check NODE_ENV
+    const nodeEnv = this.configService.get('NODE_ENV') || process.env.NODE_ENV;
     const isDevelopment = nodeEnv === 'development';
-    const isProduction = !isDevelopment || !!process.env.PORT;
+    
+    // If on Railway OR (not development AND PORT is set), treat as production
+    const isProduction = isRailway || (!isDevelopment && !!process.env.PORT) || (!isDevelopment && nodeEnv !== 'development');
     
     const isValidRedisUrl = redisUrl && typeof redisUrl === 'string' && redisUrl.trim().length > 10 && redisUrl.includes('@');
     const hasValidConfig = isValidRedisUrl || (host && port);
     
-    if (isProduction && !hasValidConfig) {
+    // CRITICAL: If production (especially Railway) without Redis config, disable immediately
+    if ((isProduction || isRailway) && !hasValidConfig) {
       this.disabled = true;
       console.warn('⚠️  Redis DISABLED in constructor - production without config');
+      console.warn('⚠️  Environment check - Railway:', isRailway, 'Production:', isProduction, 'NODE_ENV:', nodeEnv, 'PORT:', process.env.PORT);
     }
   }
 
