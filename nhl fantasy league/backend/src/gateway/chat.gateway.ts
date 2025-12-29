@@ -30,16 +30,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   ) {}
 
   onModuleInit() {
-    // Subscribe to Redis pub/sub for chat messages
-    this.redisService.subscribe('chat:message', (data) => {
-      this.server.to(`league:${data.leagueId}`).emit('chat:new-message', data.message);
-    });
-
-    this.redisService.subscribe('chat:delete', (data) => {
-      this.server.to(`league:${data.leagueId}`).emit('chat:message-deleted', {
-        messageId: data.messageId,
+    // Subscribe to Redis pub/sub for chat messages (if Redis is available)
+    const client = this.redisService.getClient();
+    if (client) {
+      this.redisService.subscribe('chat:message', (data) => {
+        this.server.to(`league:${data.leagueId}`).emit('chat:new-message', data.message);
       });
-    });
+
+      this.redisService.subscribe('chat:delete', (data) => {
+        this.server.to(`league:${data.leagueId}`).emit('chat:message-deleted', {
+          messageId: data.messageId,
+        });
+      });
+    } else {
+      console.log('⚠️  Redis not available - chat pub/sub disabled');
+    }
   }
 
   handleConnection(client: Socket) {

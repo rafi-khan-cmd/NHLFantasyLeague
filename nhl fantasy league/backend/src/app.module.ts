@@ -26,6 +26,7 @@ import { dataSourceOptions } from './data-source';
       envFilePath: '.env',
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
+    // RedisModule is imported but RedisService handles missing Redis gracefully
     RedisModule,
     AuthModule,
     PlayersModule,
