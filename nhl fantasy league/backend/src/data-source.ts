@@ -9,12 +9,13 @@ const getDataSourceOptions = (): DataSourceOptions => {
   const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
   
   // In production, use dist folder; in development, use src folder
+  // Use glob patterns that work in both environments
   const entitiesPath = isProduction 
-    ? __dirname + '/**/*.entity{.js}' 
-    : __dirname + '/**/*.entity{.ts,.js}';
+    ? __dirname + '/**/*.entity.js'
+    : __dirname + '/**/*.entity.{ts,js}';
   const migrationsPath = isProduction
-    ? __dirname + '/migrations/*{.js}'
-    : __dirname + '/migrations/*{.ts,.js}';
+    ? __dirname + '/migrations/*.js'
+    : __dirname + '/migrations/*.{ts,js}';
 
   if (databaseUrl) {
     // Parse DATABASE_URL format: postgresql://user:password@host:port/database
