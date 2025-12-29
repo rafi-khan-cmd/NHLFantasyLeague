@@ -11,19 +11,41 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    try {
-      // Support both REDIS_URL (Railway format) and REDIS_HOST/REDIS_PORT
-      const redisUrl = this.configService.get('REDIS_URL');
-      const host = this.configService.get('REDIS_HOST');
-      const port = this.configService.get('REDIS_PORT');
-      const password = this.configService.get('REDIS_PASSWORD');
-      const nodeEnv = this.configService.get('NODE_ENV') || 'production';
+    // CRITICAL: Don't initialize Redis at all in production without proper config
+    // This prevents ANY connection attempts that could crash the app
+    
+    const redisUrl = this.configService.get('REDIS_URL');
+    const host = this.configService.get('REDIS_HOST');
+    const port = this.configService.get('REDIS_PORT');
+    const password = this.configService.get('REDIS_PASSWORD');
+    const nodeEnv = this.configService.get('NODE_ENV') || 'production';
+    const isDevelopment = nodeEnv === 'development' || process.env.NODE_ENV === 'development';
 
-      // Prioritize REDIS_URL (if valid), then REDIS_HOST/REDIS_PORT, fallback to localhost only in dev
+    // Check if REDIS_URL is valid (must contain @ to be a real connection string)
+    const isValidRedisUrl = redisUrl && 
+                            typeof redisUrl === 'string' && 
+                            redisUrl.trim().length > 10 && 
+                            redisUrl.includes('@');
+
+    // Check if we have valid Redis config
+    const hasValidConfig = isValidRedisUrl || (host && port);
+
+    // In production, ONLY initialize if we have valid config
+    if (!isDevelopment && !hasValidConfig) {
+      console.warn('⚠️  Redis not configured in production - skipping Redis entirely');
+      this.client = null;
+      this.subscriber = null;
+      this.publisher = null;
+      return; // Exit early - no Redis initialization
+    }
+
+    // In development, allow localhost fallback
+    if (isDevelopment && !hasValidConfig) {
+      console.log('⚠️  Using localhost Redis (development mode)');
+    }
+
+    try {
       let redisOptions: any;
-      
-      // Check if REDIS_URL is valid (not empty and contains @ or has more than just "redis://")
-      const isValidRedisUrl = redisUrl && redisUrl.trim() && redisUrl.length > 10 && redisUrl.includes('@');
       
       if (isValidRedisUrl) {
         redisOptions = { url: redisUrl };
@@ -35,79 +57,99 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           password: password || undefined,
         };
         console.log(`✅ Using REDIS_HOST/REDIS_PORT: ${host}:${port}`);
+      } else if (isDevelopment) {
+        redisOptions = {
+          host: 'localhost',
+          port: 6379,
+        };
       } else {
-        // Only use localhost in development - skip in production
-        if (nodeEnv === 'development') {
-          redisOptions = {
-            host: 'localhost',
-            port: 6379,
-          };
-          console.log('⚠️  Using localhost Redis (development mode)');
-        } else {
-          // Production without Redis config - skip entirely
-          console.warn('⚠️  Redis not configured - skipping Redis connection (production mode)');
-          this.client = null;
-          this.subscriber = null;
-          this.publisher = null;
-          return; // Don't initialize Redis in production without config
-        }
+        // Should not reach here, but just in case
+        console.warn('⚠️  No Redis config - skipping');
+        this.client = null;
+        this.subscriber = null;
+        this.publisher = null;
+        return;
       }
 
       // Only create Redis clients if we have valid options
       if (redisOptions) {
-        // Create Redis clients with aggressive error handling
-        const redisConfig = {
+        // Create Redis clients with MAXIMUM error suppression
+        const redisConfig: any = {
           ...redisOptions,
-          retryStrategy: (times: number) => {
-            // Stop retrying after 2 attempts
-            if (times > 2) {
-              console.warn('⚠️  Redis connection failed after 2 attempts - giving up');
-              return null; // Stop retrying
-            }
-            const delay = Math.min(times * 100, 1000);
-            return delay;
-          },
-          maxRetriesPerRequest: null, // Disable automatic retries
+          retryStrategy: () => null, // Never retry
+          maxRetriesPerRequest: null, // Disable ALL retries
           lazyConnect: true, // Don't connect immediately
-          enableOfflineQueue: false, // Don't queue commands when offline
-          connectTimeout: 3000, // 3 second timeout
-          enableReadyCheck: false, // Skip ready check
+          enableOfflineQueue: false, // Don't queue commands
+          connectTimeout: 2000, // 2 second timeout
+          enableReadyCheck: false,
           showFriendlyErrorStack: false,
+          // Prevent any automatic reconnection
+          autoResubscribe: false,
+          autoResendUnfulfilledCommands: false,
         };
 
+        // Create clients but DON'T connect yet
         this.client = new Redis(redisConfig);
         this.subscriber = new Redis(redisConfig);
         this.publisher = new Redis(redisConfig);
 
-        // Suppress all error events to prevent crashes
-        this.client.on('error', () => {
-          // Silently ignore - we'll handle in methods
-        });
+        // CRITICAL: Suppress ALL error events BEFORE any connection attempt
+        const noop = () => {}; // Empty function
+        
+        this.client.on('error', noop);
+        this.client.on('close', noop);
+        this.client.on('end', noop);
+        this.client.on('reconnecting', noop);
+        
+        this.subscriber.on('error', noop);
+        this.subscriber.on('close', noop);
+        this.subscriber.on('end', noop);
+        this.subscriber.on('reconnecting', noop);
+        
+        this.publisher.on('error', noop);
+        this.publisher.on('close', noop);
+        this.publisher.on('end', noop);
+        this.publisher.on('reconnecting', noop);
 
-        this.subscriber.on('error', () => {
-          // Silently ignore
-        });
+        // Try to connect with timeout - if it fails, just set to null
+        const connectWithTimeout = (client: Redis, timeout = 2000) => {
+          return Promise.race([
+            client.connect(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), timeout)
+            ),
+          ]).catch(() => {
+            // Connection failed - set to null
+            return null;
+          });
+        };
 
-        this.publisher.on('error', () => {
-          // Silently ignore
-        });
-
-        // Try to connect, but don't block or crash on errors
+        // Connect all clients with timeout protection
         Promise.allSettled([
-          this.client.connect().catch(() => {
-            this.client = null;
+          connectWithTimeout(this.client).then(() => {
+            if (!this.client || this.client.status !== 'ready') {
+              this.client = null;
+            }
           }),
-          this.subscriber.connect().catch(() => {
-            this.subscriber = null;
+          connectWithTimeout(this.subscriber).then(() => {
+            if (!this.subscriber || this.subscriber.status !== 'ready') {
+              this.subscriber = null;
+            }
           }),
-          this.publisher.connect().catch(() => {
-            this.publisher = null;
+          connectWithTimeout(this.publisher).then(() => {
+            if (!this.publisher || this.publisher.status !== 'ready') {
+              this.publisher = null;
+            }
           }),
         ]).then(() => {
           if (this.client && this.client.status === 'ready') {
             console.log('✅ Redis connected successfully');
           } else {
             console.log('⚠️  Redis not available - app will continue without caching');
+            // Clean up failed clients
+            this.client = null;
+            this.subscriber = null;
+            this.publisher = null;
           }
         });
       }
