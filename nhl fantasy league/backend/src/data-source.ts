@@ -9,7 +9,6 @@ const getDataSourceOptions = (): DataSourceOptions => {
   const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
   
   // In production, use dist folder; in development, use src folder
-  const baseDir = isProduction ? __dirname.replace('/dist', '') : __dirname;
   const entitiesPath = isProduction 
     ? __dirname + '/**/*.entity{.js}' 
     : __dirname + '/**/*.entity{.ts,.js}';
