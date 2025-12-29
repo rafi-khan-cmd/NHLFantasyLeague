@@ -6,7 +6,7 @@ echo "🚀 Starting NHL Fantasy League Backend..."
 
 # Run database migrations
 echo "📦 Running database migrations..."
-npm run migration:run || echo "⚠️  Migrations failed or already applied"
+node run-migrations.js || echo "⚠️  Migrations failed or already applied"
 
 # Start the application
 echo "🎯 Starting NestJS application..."

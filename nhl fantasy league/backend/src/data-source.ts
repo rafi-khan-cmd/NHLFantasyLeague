@@ -6,17 +6,27 @@ config();
 // Support both DATABASE_URL (Railway format) and individual variables
 const getDataSourceOptions = (): DataSourceOptions => {
   const databaseUrl = process.env.DATABASE_URL;
+  const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
+  
+  // In production, use dist folder; in development, use src folder
+  const baseDir = isProduction ? __dirname.replace('/dist', '') : __dirname;
+  const entitiesPath = isProduction 
+    ? __dirname + '/**/*.entity{.js}' 
+    : __dirname + '/**/*.entity{.ts,.js}';
+  const migrationsPath = isProduction
+    ? __dirname + '/migrations/*{.js}'
+    : __dirname + '/migrations/*{.ts,.js}';
 
   if (databaseUrl) {
     // Parse DATABASE_URL format: postgresql://user:password@host:port/database
     return {
       type: 'postgres',
       url: databaseUrl,
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      migrations: [__dirname + '/migrations/*{.ts,.js}'],
-      synchronize: process.env.NODE_ENV === 'development',
-      logging: process.env.NODE_ENV === 'development',
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      entities: [entitiesPath],
+      migrations: [migrationsPath],
+      synchronize: false, // Never use synchronize in production
+      logging: !isProduction,
+      ssl: isProduction ? { rejectUnauthorized: false } : false,
     };
   }
 
@@ -28,11 +38,11 @@ const getDataSourceOptions = (): DataSourceOptions => {
     username: process.env.DATABASE_USER || 'nhl_fantasy',
     password: process.env.DATABASE_PASSWORD || 'nhl_fantasy_password',
     database: process.env.DATABASE_NAME || 'nhl_fantasy',
-    entities: [__dirname + '/**/*.entity{.ts,.js}'],
-    migrations: [__dirname + '/migrations/*{.ts,.js}'],
-    synchronize: process.env.NODE_ENV === 'development',
-    logging: process.env.NODE_ENV === 'development',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    entities: [entitiesPath],
+    migrations: [migrationsPath],
+    synchronize: !isProduction && process.env.NODE_ENV === 'development',
+    logging: !isProduction,
+    ssl: isProduction ? { rejectUnauthorized: false } : false,
   };
 };
 
