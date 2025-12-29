@@ -4,9 +4,9 @@ import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client: Redis;
-  private subscriber: Redis;
-  private publisher: Redis;
+  private client: Redis | null = null;
+  private subscriber: Redis | null = null;
+  private publisher: Redis | null = null;
 
   constructor(private configService: ConfigService) {}
 
@@ -106,15 +106,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.publisher?.disconnect();
   }
 
-  getClient(): Redis {
+  getClient(): Redis | null {
     return this.client;
   }
 
-  getSubscriber(): Redis {
+  getSubscriber(): Redis | null {
     return this.subscriber;
   }
 
-  getPublisher(): Redis {
+  getPublisher(): Redis | null {
     return this.publisher;
   }
 
