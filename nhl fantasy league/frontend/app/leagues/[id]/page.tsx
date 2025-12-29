@@ -87,19 +87,20 @@ export default function LeagueDetailPage() {
     }
   };
 
-  const loadDraft = async () => {
-    try {
-      // Check if league has a draft (from league data)
-      if (league?.drafts && league.drafts.length > 0) {
-        const draftId = league.drafts[0].id;
-        const response = await draftsApi.getOne(draftId);
-        setDraft(response.data);
-      }
-    } catch (err) {
-      // Draft might not exist yet, that's okay
-      console.log('No draft found for league');
-    }
-  };
+  // Draft loading removed - we're skipping drafts
+  // const loadDraft = async () => {
+  //   try {
+  //     // Check if league has a draft (from league data)
+  //     if (league?.drafts && league.drafts.length > 0) {
+  //       const draftId = league.drafts[0].id;
+  //       const response = await draftsApi.getOne(draftId);
+  //       setDraft(response.data);
+  //     }
+  //   } catch (err) {
+  //     // Draft might not exist yet, that's okay
+  //     console.log('No draft found for league');
+  //   }
+  // };
 
   const loadStandings = async () => {
     try {

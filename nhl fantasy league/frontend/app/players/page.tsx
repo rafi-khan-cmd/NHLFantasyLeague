@@ -89,7 +89,7 @@ export default function PlayersPage() {
       const response = await rostersApi.getOne(rosterId);
       const players = response.data.players || [];
       // Create a Set of NHL player IDs that are already on this roster
-      const playerIds = new Set(players.map((p: any) => p.nhlPlayerId));
+      const playerIds = new Set<number>(players.map((p: any) => p.nhlPlayerId));
       setSelectedRosterPlayers(playerIds);
       
       // Update roster info in the list

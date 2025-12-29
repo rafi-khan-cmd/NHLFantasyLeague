@@ -16,6 +16,7 @@ interface Roster {
   league?: {
     id: string;
     name: string;
+    status?: string;
   };
   players?: Array<{
     id: string;

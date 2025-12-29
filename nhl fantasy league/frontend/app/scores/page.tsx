@@ -36,7 +36,7 @@ export default function ScoresPage() {
       const rosters = rostersResponse.data;
 
       // Extract unique league IDs
-      const leagueIds = [...new Set(rosters.map((r: any) => r.leagueId).filter(Boolean))];
+      const leagueIds = Array.from(new Set(rosters.map((r: any) => r.leagueId).filter(Boolean))) as string[];
 
       // Fetch standings for each league
       const standingsData: Record<string, LeagueStandings[]> = {};
@@ -44,7 +44,7 @@ export default function ScoresPage() {
 
       for (const leagueId of leagueIds) {
         try {
-          const leagueResponse = await leaguesApi.getOne(leagueId);
+          const leagueResponse = await leaguesApi.getOne(leagueId as string);
           leagueData.push({
             id: leagueId,
             name: leagueResponse.data.name,
