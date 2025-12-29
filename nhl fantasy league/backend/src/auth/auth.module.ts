@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { EmailService } from './email.service';
 import { User } from './user.entity';
+import { EmailVerification } from './email-verification.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RedisModule } from '../redis/redis.module';
 
