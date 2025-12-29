@@ -40,12 +40,17 @@ export default function LoginPage() {
       return;
     }
 
-    try {
-      await login(email.trim(), password);
-      router.push('/');
-    } catch (err) {
-      // Error is handled by store
-    }
+        try {
+          await login(email.trim(), password);
+          router.push('/');
+        } catch (err: any) {
+          // Error is handled by store, but ensure it's displayed
+          if (err?.response?.status === 502 || err?.response?.status === 503 || err?.message?.includes('unavailable')) {
+            setFormErrors({ 
+              email: 'Backend service is temporarily unavailable. Please try again in a moment.',
+            });
+          }
+        }
   };
 
   return (

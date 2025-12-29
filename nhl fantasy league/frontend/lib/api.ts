@@ -7,7 +7,30 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 second timeout
 });
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle network errors and 502/503 (backend down)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        error.message = 'Request timed out. The server may be busy.';
+      } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        error.message = 'Cannot connect to server. Please check if the backend is running.';
+      } else {
+        error.message = 'Network error. Please try again.';
+      }
+    } else if (error.response.status === 502 || error.response.status === 503) {
+      error.message = 'Backend service is temporarily unavailable. Please try again in a moment.';
+    } else if (error.response.status >= 500) {
+      error.message = error.response.data?.message || 'Internal server error. Please try again.';
+    }
+    return Promise.reject(error);
+  },
+);
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
