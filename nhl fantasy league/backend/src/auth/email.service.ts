@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import * as nodemailer from 'nodemailer';
 import { RedisService } from '../redis/redis.service';
+import { EmailVerification } from './email-verification.entity';
 
 @Injectable()
 export class EmailService {
