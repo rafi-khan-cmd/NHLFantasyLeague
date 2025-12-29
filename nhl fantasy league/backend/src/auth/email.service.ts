@@ -101,36 +101,59 @@ export class EmailService {
    */
   async verifyCode(email: string, code: string): Promise<boolean> {
     const cacheKey = `email:verification:${email}`;
-    const storedCode = await this.redisService.get(cacheKey);
+    
+    try {
+      const storedCode = await this.redisService.get(cacheKey);
 
-    if (!storedCode) {
-      this.logger.warn(`No verification code found for ${email}`);
+      if (!storedCode) {
+        this.logger.warn(`No verification code found for ${email} (Redis may be unavailable)`);
+        // If Redis is unavailable, we can't verify codes - this is a problem
+        // For now, we'll return false, but in production without Redis, we need a fallback
+        return false;
+      }
+
+      if (storedCode !== code) {
+        this.logger.warn(`Invalid verification code for ${email}`);
+        return false;
+      }
+
+      // Code is valid, mark email as verified (store for 30 minutes)
+      const verifiedKey = `email:verified:${email}`;
+      try {
+        await this.redisService.set(verifiedKey, 'true', 1800);
+      } catch (error) {
+        this.logger.warn('⚠️  Redis not available for storing verification status');
+      }
+
+      // Delete the verification code
+      try {
+        await this.redisService.del(cacheKey);
+      } catch (error) {
+        // Ignore Redis errors
+      }
+
+      this.logger.log(`✅ Email ${email} verified successfully`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Error verifying code for ${email}:`, error);
       return false;
     }
-
-    if (storedCode !== code) {
-      this.logger.warn(`Invalid verification code for ${email}`);
-      return false;
-    }
-
-    // Code is valid, mark email as verified (store for 30 minutes)
-    const verifiedKey = `email:verified:${email}`;
-    await this.redisService.set(verifiedKey, 'true', 1800);
-
-    // Delete the verification code
-    await this.redisService.del(cacheKey);
-
-    this.logger.log(`✅ Email ${email} verified successfully`);
-    return true;
   }
 
   /**
    * Check if email is verified
    */
   async isEmailVerified(email: string): Promise<boolean> {
-    const verifiedKey = `email:verified:${email}`;
-    const verified = await this.redisService.get(verifiedKey);
-    return verified === 'true';
+    try {
+      const verifiedKey = `email:verified:${email}`;
+      const verified = await this.redisService.get(verifiedKey);
+      return verified === 'true';
+    } catch (error) {
+      this.logger.warn('⚠️  Redis not available for checking verification status');
+      // If Redis is unavailable, we can't check verification
+      // For production without Redis, we might need a database fallback
+      return false;
+    }
   }
 
   /**
