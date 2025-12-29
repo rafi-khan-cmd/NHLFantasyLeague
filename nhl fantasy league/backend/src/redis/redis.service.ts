@@ -21,9 +21,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const isDevelopment = nodeEnv === 'development';
     
     // Check if we're on Railway (production) - Railway sets these env vars
+    // Also check for PORT being set (Railway always sets this)
     const isRailway = !!process.env.RAILWAY_ENVIRONMENT || 
                      !!process.env.RAILWAY_SERVICE_NAME ||
-                     !!process.env.RAILWAY_PROJECT_ID;
+                     !!process.env.RAILWAY_PROJECT_ID ||
+                     (!!process.env.PORT && !isDevelopment); // PORT set + not dev = likely Railway
     
     // Check if REDIS_URL is valid (must contain @ to be a real connection string)
     const isValidRedisUrl = redisUrl && 
@@ -34,9 +36,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     // Check if we have valid Redis config
     const hasValidConfig = isValidRedisUrl || (host && port);
 
-    // CRITICAL: If on Railway without valid Redis config, SKIP ENTIRELY - NO REDIS CODE RUNS
-    if (isRailway && !hasValidConfig) {
-      console.warn('⚠️  Running on Railway without Redis config - skipping Redis entirely');
+    // CRITICAL: If on Railway (or production) without valid Redis config, SKIP ENTIRELY
+    if ((isRailway || (!isDevelopment && !hasValidConfig)) && !hasValidConfig) {
+      console.warn('⚠️  Running in production without Redis config - skipping Redis entirely');
       this.client = null;
       this.subscriber = null;
       this.publisher = null;
