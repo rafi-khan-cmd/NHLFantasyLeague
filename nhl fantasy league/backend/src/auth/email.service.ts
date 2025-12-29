@@ -11,6 +11,8 @@ export class EmailService {
   constructor(
     private redisService: RedisService,
     private configService: ConfigService,
+    @InjectRepository(EmailVerification)
+    private emailVerificationRepository: Repository<EmailVerification>,
   ) {
     // Initialize email transporter
     this.transporter = nodemailer.createTransport({
@@ -144,24 +146,62 @@ export class EmailService {
    * Check if email is verified
    */
   async isEmailVerified(email: string): Promise<boolean> {
-    try {
-      const verifiedKey = `email:verified:${email}`;
-      const verified = await this.redisService.get(verifiedKey);
-      return verified === 'true';
-    } catch (error) {
-      this.logger.warn('⚠️  Redis not available for checking verification status');
-      // If Redis is unavailable, we can't check verification
-      // For production without Redis, we might need a database fallback
-      return false;
+    // Check Redis first
+    const redisClient = this.redisService.getClient();
+    if (redisClient && redisClient.status === 'ready') {
+      try {
+        const verifiedKey = `email:verified:${email}`;
+        const verified = await this.redisService.get(verifiedKey);
+        if (verified === 'true') {
+          return true;
+        }
+      } catch (error) {
+        // Redis failed, check database
+      }
     }
+    
+    // Check database as fallback
+    try {
+      const dbVerification = await this.emailVerificationRepository.findOne({
+        where: { email, verified: true },
+        order: { createdAt: 'DESC' },
+      });
+      
+      // Check if verification is recent (within last 30 minutes)
+      if (dbVerification && dbVerification.createdAt) {
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+        if (dbVerification.createdAt > thirtyMinutesAgo) {
+          return true;
+        }
+      }
+    } catch (error: any) {
+      this.logger.error(`Error checking database for verification status:`, error.message);
+    }
+    
+    return false;
   }
 
   /**
    * Invalidate verification (after successful registration)
    */
   async invalidateVerification(email: string): Promise<void> {
-    const verifiedKey = `email:verified:${email}`;
-    await this.redisService.del(verifiedKey);
+    // Delete from Redis
+    const redisClient = this.redisService.getClient();
+    if (redisClient && redisClient.status === 'ready') {
+      try {
+        const verifiedKey = `email:verified:${email}`;
+        await this.redisService.del(verifiedKey);
+      } catch (error) {
+        // Ignore Redis errors
+      }
+    }
+    
+    // Delete from database
+    try {
+      await this.emailVerificationRepository.delete({ email });
+    } catch (error: any) {
+      this.logger.error(`Error deleting verification from database:`, error.message);
+    }
   }
 }
 

@@ -12,7 +12,7 @@ import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, EmailVerification]),
     PassportModule,
     RedisModule,
     JwtModule.registerAsync({
