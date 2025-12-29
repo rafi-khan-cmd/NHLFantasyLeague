@@ -28,6 +28,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
+    // CRITICAL: If disabled in constructor, exit IMMEDIATELY - don't do ANYTHING
+    if (this.disabled) {
+      console.warn('⚠️  Redis was disabled in constructor - skipping onModuleInit entirely');
+      return;
+    }
+    
     // CRITICAL: Check environment FIRST before doing ANYTHING with Redis
     // This prevents ANY Redis client creation if we're on Railway without config
     
