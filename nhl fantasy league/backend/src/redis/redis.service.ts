@@ -10,13 +10,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private configService: ConfigService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     try {
       // Support both REDIS_URL (Railway format) and REDIS_HOST/REDIS_PORT
       const redisUrl = this.configService.get('REDIS_URL');
       const host = this.configService.get('REDIS_HOST');
       const port = this.configService.get('REDIS_PORT');
       const password = this.configService.get('REDIS_PASSWORD');
+      const nodeEnv = this.configService.get('NODE_ENV') || 'production';
 
       // Prioritize REDIS_URL (if valid), then REDIS_HOST/REDIS_PORT, fallback to localhost only in dev
       let redisOptions: any;
@@ -36,15 +37,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         console.log(`✅ Using REDIS_HOST/REDIS_PORT: ${host}:${port}`);
       } else {
         // Only use localhost in development - skip in production
-        if (this.configService.get('NODE_ENV') === 'development') {
+        if (nodeEnv === 'development') {
           redisOptions = {
             host: 'localhost',
             port: 6379,
           };
           console.log('⚠️  Using localhost Redis (development mode)');
         } else {
-          console.warn('⚠️  Redis not configured - skipping Redis connection');
-          // Don't initialize Redis clients at all
+          // Production without Redis config - skip entirely
+          console.warn('⚠️  Redis not configured - skipping Redis connection (production mode)');
           this.client = null;
           this.subscriber = null;
           this.publisher = null;
@@ -54,62 +55,60 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       // Only create Redis clients if we have valid options
       if (redisOptions) {
-        this.client = new Redis({
+        // Create Redis clients with aggressive error handling
+        const redisConfig = {
           ...redisOptions,
-          retryStrategy: (times) => {
-            // Stop retrying after 3 attempts
-            if (times > 3) {
+          retryStrategy: (times: number) => {
+            // Stop retrying after 2 attempts
+            if (times > 2) {
+              console.warn('⚠️  Redis connection failed after 2 attempts - giving up');
               return null; // Stop retrying
             }
-            const delay = Math.min(times * 50, 2000);
+            const delay = Math.min(times * 100, 1000);
             return delay;
           },
-          maxRetriesPerRequest: 1, // Only 1 retry
+          maxRetriesPerRequest: null, // Disable automatic retries
           lazyConnect: true, // Don't connect immediately
           enableOfflineQueue: false, // Don't queue commands when offline
-          connectTimeout: 5000, // 5 second timeout
+          connectTimeout: 3000, // 3 second timeout
+          enableReadyCheck: false, // Skip ready check
+          showFriendlyErrorStack: false,
+        };
+
+        this.client = new Redis(redisConfig);
+        this.subscriber = new Redis(redisConfig);
+        this.publisher = new Redis(redisConfig);
+
+        // Suppress all error events to prevent crashes
+        this.client.on('error', () => {
+          // Silently ignore - we'll handle in methods
         });
 
-        this.subscriber = new Redis({
-          ...redisOptions,
-          maxRetriesPerRequest: 1,
-          lazyConnect: true,
-          enableOfflineQueue: false,
-          connectTimeout: 5000,
+        this.subscriber.on('error', () => {
+          // Silently ignore
         });
 
-        this.publisher = new Redis({
-          ...redisOptions,
-          maxRetriesPerRequest: 1,
-          lazyConnect: true,
-          enableOfflineQueue: false,
-          connectTimeout: 5000,
+        this.publisher.on('error', () => {
+          // Silently ignore
         });
 
-        // Try to connect, but don't block on errors
-        this.client.connect().catch((err) => {
-          console.error('⚠️  Redis connection failed (non-critical):', err.message);
-          console.log('⚠️  App will continue without Redis caching');
-          // Set to null so methods know Redis is unavailable
-          this.client = null;
-        });
-
-        this.subscriber.connect().catch((err) => {
-          console.error('⚠️  Redis subscriber connection failed:', err.message);
-          this.subscriber = null;
-        });
-
-        this.publisher.connect().catch((err) => {
-          console.error('⚠️  Redis publisher connection failed:', err.message);
-          this.publisher = null;
-        });
-
-        this.client.on('error', (err) => {
-          console.error('Redis Client Error (non-critical):', err.message);
-        });
-
-        this.client.on('connect', () => {
-          console.log('✅ Redis connected successfully');
+        // Try to connect, but don't block or crash on errors
+        Promise.allSettled([
+          this.client.connect().catch(() => {
+            this.client = null;
+          }),
+          this.subscriber.connect().catch(() => {
+            this.subscriber = null;
+          }),
+          this.publisher.connect().catch(() => {
+            this.publisher = null;
+          }),
+        ]).then(() => {
+          if (this.client && this.client.status === 'ready') {
+            console.log('✅ Redis connected successfully');
+          } else {
+            console.log('⚠️  Redis not available - app will continue without caching');
+          }
         });
       }
     } catch (error) {
@@ -161,7 +160,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         await this.client.set(key, serialized);
       }
     } catch (error) {
-      console.error('Redis set error:', error);
+      // Silently fail - Redis is optional
     }
   }
 
