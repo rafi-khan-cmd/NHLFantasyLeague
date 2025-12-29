@@ -11,40 +11,50 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
+    // CRITICAL: Check environment FIRST before doing ANYTHING with Redis
+    // This prevents ANY Redis client creation if we're on Railway without config
+    
+    const redisUrl = this.configService.get('REDIS_URL');
+    const host = this.configService.get('REDIS_HOST');
+    const port = this.configService.get('REDIS_PORT');
+    const nodeEnv = this.configService.get('NODE_ENV') || process.env.NODE_ENV || 'production';
+    const isDevelopment = nodeEnv === 'development';
+    
+    // Check if we're on Railway (production) - Railway sets these env vars
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT || 
+                     !!process.env.RAILWAY_SERVICE_NAME ||
+                     !!process.env.RAILWAY_PROJECT_ID;
+    
+    // Check if REDIS_URL is valid (must contain @ to be a real connection string)
+    const isValidRedisUrl = redisUrl && 
+                            typeof redisUrl === 'string' && 
+                            redisUrl.trim().length > 10 && 
+                            redisUrl.includes('@');
+
+    // Check if we have valid Redis config
+    const hasValidConfig = isValidRedisUrl || (host && port);
+
+    // CRITICAL: If on Railway without valid Redis config, SKIP ENTIRELY - NO REDIS CODE RUNS
+    if (isRailway && !hasValidConfig) {
+      console.warn('⚠️  Running on Railway without Redis config - skipping Redis entirely');
+      this.client = null;
+      this.subscriber = null;
+      this.publisher = null;
+      return; // Exit IMMEDIATELY - no Redis initialization at all
+    }
+
+    // In production (not Railway, but still production) without config, skip
+    if (!isDevelopment && !hasValidConfig) {
+      console.warn('⚠️  Redis not configured in production - skipping Redis entirely');
+      this.client = null;
+      this.subscriber = null;
+      this.publisher = null;
+      return; // Exit early - no Redis initialization
+    }
+
     // CRITICAL: Wrap everything in try-catch to prevent ANY crashes
     try {
-      // CRITICAL: Don't initialize Redis at all in production without proper config
-      // This prevents ANY connection attempts that could crash the app
-      
-      const redisUrl = this.configService.get('REDIS_URL');
-      const host = this.configService.get('REDIS_HOST');
-      const port = this.configService.get('REDIS_PORT');
       const password = this.configService.get('REDIS_PASSWORD');
-      // Check NODE_ENV from multiple sources to be absolutely sure
-      const nodeEnv = this.configService.get('NODE_ENV') || 
-                     process.env.NODE_ENV || 
-                     (process.env.RAILWAY_ENVIRONMENT ? 'production' : 'production') ||
-                     'production';
-      const isDevelopment = nodeEnv === 'development';
-      
-      // CRITICAL: If we're on Railway (production), NEVER use localhost Redis
-      const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY_SERVICE_NAME;
-      if (isRailway && !hasValidConfig) {
-        console.warn('⚠️  Running on Railway without Redis config - skipping Redis entirely');
-        this.client = null;
-        this.subscriber = null;
-        this.publisher = null;
-        return;
-      }
-
-      // Check if REDIS_URL is valid (must contain @ to be a real connection string)
-      const isValidRedisUrl = redisUrl && 
-                              typeof redisUrl === 'string' && 
-                              redisUrl.trim().length > 10 && 
-                              redisUrl.includes('@');
-
-      // Check if we have valid Redis config
-      const hasValidConfig = isValidRedisUrl || (host && port);
 
       // In production, ONLY initialize if we have valid config
       if (!isDevelopment && !hasValidConfig) {
