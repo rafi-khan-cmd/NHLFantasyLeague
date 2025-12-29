@@ -134,8 +134,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // Only create Redis clients if we have valid options
-      if (redisOptions) {
+      // CRITICAL: Double-check disabled flag before creating ANY Redis clients
+      if (this.disabled) {
+        console.warn('⚠️  Redis disabled - not creating clients');
+        return;
+      }
+      
+      // Only create Redis clients if we have valid options AND not disabled
+      if (redisOptions && !this.disabled) {
         try {
           // Create Redis clients with MAXIMUM error suppression
           const redisConfig: any = {
