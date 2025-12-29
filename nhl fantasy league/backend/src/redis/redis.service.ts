@@ -7,8 +7,25 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: Redis | null = null;
   private subscriber: Redis | null = null;
   private publisher: Redis | null = null;
+  private disabled: boolean = false;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    // CRITICAL: Check in constructor too - disable Redis immediately if in production without config
+    const redisUrl = this.configService.get('REDIS_URL');
+    const host = this.configService.get('REDIS_HOST');
+    const port = this.configService.get('REDIS_PORT');
+    const nodeEnv = this.configService.get('NODE_ENV') || process.env.NODE_ENV || 'production';
+    const isDevelopment = nodeEnv === 'development';
+    const isProduction = !isDevelopment || !!process.env.PORT;
+    
+    const isValidRedisUrl = redisUrl && typeof redisUrl === 'string' && redisUrl.trim().length > 10 && redisUrl.includes('@');
+    const hasValidConfig = isValidRedisUrl || (host && port);
+    
+    if (isProduction && !hasValidConfig) {
+      this.disabled = true;
+      console.warn('⚠️  Redis DISABLED in constructor - production without config');
+    }
+  }
 
   async onModuleInit() {
     // CRITICAL: Check environment FIRST before doing ANYTHING with Redis
@@ -264,7 +281,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
-    if (!this.client || this.client.status !== 'ready') {
+    if (this.disabled || !this.client || this.client.status !== 'ready') {
       return;
     }
     try {
