@@ -20,8 +20,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       const host = this.configService.get('REDIS_HOST');
       const port = this.configService.get('REDIS_PORT');
       const password = this.configService.get('REDIS_PASSWORD');
-      const nodeEnv = this.configService.get('NODE_ENV') || process.env.NODE_ENV || 'production';
+      // Check NODE_ENV from multiple sources to be absolutely sure
+      const nodeEnv = this.configService.get('NODE_ENV') || 
+                     process.env.NODE_ENV || 
+                     (process.env.RAILWAY_ENVIRONMENT ? 'production' : 'production') ||
+                     'production';
       const isDevelopment = nodeEnv === 'development';
+      
+      // CRITICAL: If we're on Railway (production), NEVER use localhost Redis
+      const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY_SERVICE_NAME;
+      if (isRailway && !hasValidConfig) {
+        console.warn('⚠️  Running on Railway without Redis config - skipping Redis entirely');
+        this.client = null;
+        this.subscriber = null;
+        this.publisher = null;
+        return;
+      }
 
       // Check if REDIS_URL is valid (must contain @ to be a real connection string)
       const isValidRedisUrl = redisUrl && 
