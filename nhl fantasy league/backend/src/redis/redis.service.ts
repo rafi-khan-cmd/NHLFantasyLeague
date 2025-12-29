@@ -44,56 +44,74 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           console.log('⚠️  Using localhost Redis (development mode)');
         } else {
           console.warn('⚠️  Redis not configured - skipping Redis connection');
+          // Don't initialize Redis clients at all
+          this.client = null;
+          this.subscriber = null;
+          this.publisher = null;
           return; // Don't initialize Redis in production without config
         }
       }
 
-      this.client = new Redis({
-        ...redisOptions,
-        retryStrategy: (times) => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        },
-        maxRetriesPerRequest: 3, // Reduce retries to fail faster
-        lazyConnect: true, // Don't connect immediately
-        enableOfflineQueue: false, // Don't queue commands when offline
-      });
+      // Only create Redis clients if we have valid options
+      if (redisOptions) {
+        this.client = new Redis({
+          ...redisOptions,
+          retryStrategy: (times) => {
+            // Stop retrying after 3 attempts
+            if (times > 3) {
+              return null; // Stop retrying
+            }
+            const delay = Math.min(times * 50, 2000);
+            return delay;
+          },
+          maxRetriesPerRequest: 1, // Only 1 retry
+          lazyConnect: true, // Don't connect immediately
+          enableOfflineQueue: false, // Don't queue commands when offline
+          connectTimeout: 5000, // 5 second timeout
+        });
 
-      this.subscriber = new Redis({
-        ...redisOptions,
-        maxRetriesPerRequest: 3,
-        lazyConnect: true,
-        enableOfflineQueue: false,
-      });
+        this.subscriber = new Redis({
+          ...redisOptions,
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+          enableOfflineQueue: false,
+          connectTimeout: 5000,
+        });
 
-      this.publisher = new Redis({
-        ...redisOptions,
-        maxRetriesPerRequest: 3,
-        lazyConnect: true,
-        enableOfflineQueue: false,
-      });
+        this.publisher = new Redis({
+          ...redisOptions,
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+          enableOfflineQueue: false,
+          connectTimeout: 5000,
+        });
 
-      // Try to connect, but don't block on errors
-      this.client.connect().catch((err) => {
-        console.error('⚠️  Redis connection failed (non-critical):', err.message);
-        console.log('⚠️  App will continue without Redis caching');
-      });
+        // Try to connect, but don't block on errors
+        this.client.connect().catch((err) => {
+          console.error('⚠️  Redis connection failed (non-critical):', err.message);
+          console.log('⚠️  App will continue without Redis caching');
+          // Set to null so methods know Redis is unavailable
+          this.client = null;
+        });
 
-      this.subscriber.connect().catch((err) => {
-        console.error('⚠️  Redis subscriber connection failed:', err.message);
-      });
+        this.subscriber.connect().catch((err) => {
+          console.error('⚠️  Redis subscriber connection failed:', err.message);
+          this.subscriber = null;
+        });
 
-      this.publisher.connect().catch((err) => {
-        console.error('⚠️  Redis publisher connection failed:', err.message);
-      });
+        this.publisher.connect().catch((err) => {
+          console.error('⚠️  Redis publisher connection failed:', err.message);
+          this.publisher = null;
+        });
 
-      this.client.on('error', (err) => {
-        console.error('Redis Client Error (non-critical):', err.message);
-      });
+        this.client.on('error', (err) => {
+          console.error('Redis Client Error (non-critical):', err.message);
+        });
 
-      this.client.on('connect', () => {
-        console.log('✅ Redis connected successfully');
-      });
+        this.client.on('connect', () => {
+          console.log('✅ Redis connected successfully');
+        });
+      }
     } catch (error) {
       console.error('⚠️  Redis initialization error (non-critical):', error);
       console.log('⚠️  App will continue without Redis');
