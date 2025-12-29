@@ -26,10 +26,8 @@ import { dataSourceOptions } from './data-source';
       envFilePath: '.env',
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
-    // Conditionally load RedisModule - only if not on Railway without config
-    ...(process.env.RAILWAY_ENVIRONMENT && !process.env.REDIS_URL && !process.env.REDIS_HOST
-      ? [] // Skip RedisModule entirely on Railway without Redis config
-      : [RedisModule]),
+    // RedisModule - will skip initialization if on Railway without Redis config
+    RedisModule,
     AuthModule,
     PlayersModule,
     RostersModule,
