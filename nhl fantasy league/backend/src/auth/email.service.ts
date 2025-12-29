@@ -42,13 +42,25 @@ export class EmailService {
   async sendVerificationCode(email: string): Promise<string> {
     const code = this.generateVerificationCode();
     const cacheKey = `email:verification:${email}`;
+    const expiresAt = new Date(Date.now() + 600 * 1000); // 10 minutes from now
     
     // Store code in Redis with 10-minute expiration (if Redis is available)
-    // If Redis is disabled, we'll still send the email and log the code
     try {
       await this.redisService.set(cacheKey, code, 600);
     } catch (error) {
-      this.logger.warn('⚠️  Redis not available for storing verification code - code will be logged only');
+      this.logger.warn('⚠️  Redis not available for storing verification code - using database only');
+    }
+
+    // Store code in database as a fallback (or primary if Redis is unavailable)
+    try {
+      // Delete any old codes for this email first
+      await this.emailVerificationRepository.delete({ email });
+      await this.emailVerificationRepository.save({ email, code, expiresAt });
+      this.logger.log(`✅ Verification code stored in database for ${email}`);
+    } catch (error: any) {
+      this.logger.error(`❌ Failed to store verification code in database for ${email}:`, error.message);
+      // If DB fails, we can't proceed with verification, so re-throw
+      throw new Error('Failed to store verification code. Please try again.');
     }
 
     // Try to send email
@@ -106,43 +118,74 @@ export class EmailService {
    */
   async verifyCode(email: string, code: string): Promise<boolean> {
     const cacheKey = `email:verification:${email}`;
-    
+    let storedCode: string | null = null;
+
+    // Try fetching from Redis first
     try {
-      const storedCode = await this.redisService.get(cacheKey);
-
-      if (!storedCode) {
-        this.logger.warn(`No verification code found for ${email} (Redis may be unavailable)`);
-        // If Redis is unavailable, we can't verify codes - this is a problem
-        // For now, we'll return false, but in production without Redis, we need a fallback
-        return false;
-      }
-
-      if (storedCode !== code) {
-        this.logger.warn(`Invalid verification code for ${email}`);
-        return false;
-      }
-
-      // Code is valid, mark email as verified (store for 30 minutes)
-      const verifiedKey = `email:verified:${email}`;
-      try {
-        await this.redisService.set(verifiedKey, 'true', 1800);
-      } catch (error) {
-        this.logger.warn('⚠️  Redis not available for storing verification status');
-      }
-
-      // Delete the verification code
-      try {
-        await this.redisService.del(cacheKey);
-      } catch (error) {
-        // Ignore Redis errors
-      }
-
-      this.logger.log(`✅ Email ${email} verified successfully`);
-      return true;
+      storedCode = await this.redisService.get(cacheKey);
     } catch (error) {
-      this.logger.error(`Error verifying code for ${email}:`, error);
+      this.logger.warn('⚠️  Redis not available for fetching verification code');
+    }
+
+    // If not in Redis or Redis failed, try fetching from database
+    if (!storedCode) {
+      try {
+        const dbVerification = await this.emailVerificationRepository.findOne({
+          where: { email },
+        });
+        if (dbVerification && dbVerification.expiresAt && dbVerification.expiresAt > new Date()) {
+          storedCode = dbVerification.code;
+        } else if (dbVerification) {
+          // Code expired in DB, delete it
+          await this.emailVerificationRepository.delete({ email });
+        }
+      } catch (error: any) {
+        this.logger.error(`Error fetching verification code from database:`, error.message);
+      }
+    }
+
+    if (!storedCode) {
+      this.logger.warn(`No active verification code found for ${email}`);
       return false;
     }
+
+    if (storedCode !== code) {
+      this.logger.warn(`Invalid verification code for ${email}`);
+      return false;
+    }
+
+    // Code is valid, mark email as verified (store for 30 minutes)
+    const verifiedKey = `email:verified:${email}`;
+    try {
+      await this.redisService.set(verifiedKey, 'true', 1800);
+    } catch (error) {
+      this.logger.warn('⚠️  Redis not available for storing verification status');
+    }
+
+    // Store verified status in database
+    try {
+      const dbVerification = await this.emailVerificationRepository.findOne({
+        where: { email },
+      });
+      if (dbVerification) {
+        // Mark as verified and update expiresAt to 30 minutes from now
+        dbVerification.verified = true;
+        dbVerification.expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        await this.emailVerificationRepository.save(dbVerification);
+      }
+    } catch (error: any) {
+      this.logger.error(`Error storing verified status in database:`, error.message);
+    }
+
+    // Delete the verification code from both Redis and DB
+    try {
+      await this.redisService.del(cacheKey);
+    } catch (error) {
+      // Ignore Redis errors
+    }
+
+    this.logger.log(`✅ Email ${email} verified successfully`);
+    return true;
   }
 
   /**
@@ -171,9 +214,9 @@ export class EmailService {
       });
       
       // Check if verification is recent (within last 30 minutes)
-      if (dbVerification && dbVerification.createdAt) {
-        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-        if (dbVerification.createdAt > thirtyMinutesAgo) {
+      if (dbVerification && dbVerification.expiresAt) {
+        const now = new Date();
+        if (dbVerification.expiresAt > now) {
           return true;
         }
       }
