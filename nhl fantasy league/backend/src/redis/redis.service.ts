@@ -17,23 +17,29 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const port = this.configService.get('REDIS_PORT');
     const password = this.configService.get('REDIS_PASSWORD');
 
-    // Prioritize REDIS_URL, then REDIS_HOST/REDIS_PORT, fallback to localhost only in dev
+    // Prioritize REDIS_URL (if valid), then REDIS_HOST/REDIS_PORT, fallback to localhost only in dev
     let redisOptions: any;
     
-    if (redisUrl && redisUrl.trim() && redisUrl !== 'redis://') {
+    // Check if REDIS_URL is valid (not empty and contains @ or has more than just "redis://")
+    const isValidRedisUrl = redisUrl && redisUrl.trim() && redisUrl.length > 10 && redisUrl.includes('@');
+    
+    if (isValidRedisUrl) {
       redisOptions = { url: redisUrl };
+      console.log('Using REDIS_URL for connection');
     } else if (host && port) {
       redisOptions = {
         host,
         port: parseInt(port),
         password: password || undefined,
       };
+      console.log(`Using REDIS_HOST/REDIS_PORT: ${host}:${port}`);
     } else {
       // Only use localhost in development
       redisOptions = {
         host: 'localhost',
         port: 6379,
       };
+      console.log('Using localhost Redis (development mode)');
     }
 
     this.client = new Redis({
