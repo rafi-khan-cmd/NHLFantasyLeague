@@ -11,40 +11,40 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    // CRITICAL: Don't initialize Redis at all in production without proper config
-    // This prevents ANY connection attempts that could crash the app
-    
-    const redisUrl = this.configService.get('REDIS_URL');
-    const host = this.configService.get('REDIS_HOST');
-    const port = this.configService.get('REDIS_PORT');
-    const password = this.configService.get('REDIS_PASSWORD');
-    const nodeEnv = this.configService.get('NODE_ENV') || 'production';
-    const isDevelopment = nodeEnv === 'development' || process.env.NODE_ENV === 'development';
-
-    // Check if REDIS_URL is valid (must contain @ to be a real connection string)
-    const isValidRedisUrl = redisUrl && 
-                            typeof redisUrl === 'string' && 
-                            redisUrl.trim().length > 10 && 
-                            redisUrl.includes('@');
-
-    // Check if we have valid Redis config
-    const hasValidConfig = isValidRedisUrl || (host && port);
-
-    // In production, ONLY initialize if we have valid config
-    if (!isDevelopment && !hasValidConfig) {
-      console.warn('⚠️  Redis not configured in production - skipping Redis entirely');
-      this.client = null;
-      this.subscriber = null;
-      this.publisher = null;
-      return; // Exit early - no Redis initialization
-    }
-
-    // In development, allow localhost fallback
-    if (isDevelopment && !hasValidConfig) {
-      console.log('⚠️  Using localhost Redis (development mode)');
-    }
-
+    // CRITICAL: Wrap everything in try-catch to prevent ANY crashes
     try {
+      // CRITICAL: Don't initialize Redis at all in production without proper config
+      // This prevents ANY connection attempts that could crash the app
+      
+      const redisUrl = this.configService.get('REDIS_URL');
+      const host = this.configService.get('REDIS_HOST');
+      const port = this.configService.get('REDIS_PORT');
+      const password = this.configService.get('REDIS_PASSWORD');
+      const nodeEnv = this.configService.get('NODE_ENV') || process.env.NODE_ENV || 'production';
+      const isDevelopment = nodeEnv === 'development';
+
+      // Check if REDIS_URL is valid (must contain @ to be a real connection string)
+      const isValidRedisUrl = redisUrl && 
+                              typeof redisUrl === 'string' && 
+                              redisUrl.trim().length > 10 && 
+                              redisUrl.includes('@');
+
+      // Check if we have valid Redis config
+      const hasValidConfig = isValidRedisUrl || (host && port);
+
+      // In production, ONLY initialize if we have valid config
+      if (!isDevelopment && !hasValidConfig) {
+        console.warn('⚠️  Redis not configured in production - skipping Redis entirely');
+        this.client = null;
+        this.subscriber = null;
+        this.publisher = null;
+        return; // Exit early - no Redis initialization
+      }
+
+      // In development, allow localhost fallback
+      if (isDevelopment && !hasValidConfig) {
+        console.log('⚠️  Using localhost Redis (development mode)');
+      }
       let redisOptions: any;
       
       if (isValidRedisUrl) {
@@ -73,89 +73,122 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       // Only create Redis clients if we have valid options
       if (redisOptions) {
-        // Create Redis clients with MAXIMUM error suppression
-        const redisConfig: any = {
-          ...redisOptions,
-          retryStrategy: () => null, // Never retry
-          maxRetriesPerRequest: null, // Disable ALL retries
-          lazyConnect: true, // Don't connect immediately
-          enableOfflineQueue: false, // Don't queue commands
-          connectTimeout: 2000, // 2 second timeout
-          enableReadyCheck: false,
-          showFriendlyErrorStack: false,
-          // Prevent any automatic reconnection
-          autoResubscribe: false,
-          autoResendUnfulfilledCommands: false,
-        };
+        try {
+          // Create Redis clients with MAXIMUM error suppression
+          const redisConfig: any = {
+            ...redisOptions,
+            retryStrategy: () => null, // Never retry
+            maxRetriesPerRequest: null, // Disable ALL retries
+            lazyConnect: true, // Don't connect immediately
+            enableOfflineQueue: false, // Don't queue commands
+            connectTimeout: 2000, // 2 second timeout
+            enableReadyCheck: false,
+            showFriendlyErrorStack: false,
+            // Prevent any automatic reconnection
+            autoResubscribe: false,
+            autoResendUnfulfilledCommands: false,
+          };
 
-        // Create clients but DON'T connect yet
-        this.client = new Redis(redisConfig);
-        this.subscriber = new Redis(redisConfig);
-        this.publisher = new Redis(redisConfig);
+          // Create clients but DON'T connect yet
+          this.client = new Redis(redisConfig);
+          this.subscriber = new Redis(redisConfig);
+          this.publisher = new Redis(redisConfig);
 
-        // CRITICAL: Suppress ALL error events BEFORE any connection attempt
-        const noop = () => {}; // Empty function
-        
-        this.client.on('error', noop);
-        this.client.on('close', noop);
-        this.client.on('end', noop);
-        this.client.on('reconnecting', noop);
-        
-        this.subscriber.on('error', noop);
-        this.subscriber.on('close', noop);
-        this.subscriber.on('end', noop);
-        this.subscriber.on('reconnecting', noop);
-        
-        this.publisher.on('error', noop);
-        this.publisher.on('close', noop);
-        this.publisher.on('end', noop);
-        this.publisher.on('reconnecting', noop);
-
-        // Try to connect with timeout - if it fails, just set to null
-        const connectWithTimeout = (client: Redis, timeout = 2000) => {
-          return Promise.race([
-            client.connect(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout')), timeout)
-            ),
-          ]).catch(() => {
-            // Connection failed - set to null
-            return null;
+          // CRITICAL: Suppress ALL error events BEFORE any connection attempt
+          const noop = () => {}; // Empty function
+          
+          // Suppress ALL possible events that could cause issues
+          ['error', 'close', 'end', 'reconnecting', 'connect', 'ready', 'disconnect'].forEach(event => {
+            this.client?.on(event as any, noop);
+            this.subscriber?.on(event as any, noop);
+            this.publisher?.on(event as any, noop);
           });
-        };
 
-        // Connect all clients with timeout protection
-        Promise.allSettled([
-          connectWithTimeout(this.client).then(() => {
-            if (!this.client || this.client.status !== 'ready') {
+          // Try to connect with timeout - if it fails, just set to null
+          const connectWithTimeout = (client: Redis | null, timeout = 2000) => {
+            if (!client) return Promise.resolve(null);
+            return Promise.race([
+              client.connect(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), timeout)
+              ),
+            ]).catch(() => {
+              // Connection failed - return null
+              return null;
+            });
+          };
+
+          // Connect all clients with timeout protection - don't await, just fire and forget
+          Promise.allSettled([
+            connectWithTimeout(this.client).then(() => {
+              if (!this.client || this.client.status !== 'ready') {
+                try { this.client?.disconnect(); } catch {}
+                this.client = null;
+              }
+            }),
+            connectWithTimeout(this.subscriber).then(() => {
+              if (!this.subscriber || this.subscriber.status !== 'ready') {
+                try { this.subscriber?.disconnect(); } catch {}
+                this.subscriber = null;
+              }
+            }),
+            connectWithTimeout(this.publisher).then(() => {
+              if (!this.publisher || this.publisher.status !== 'ready') {
+                try { this.publisher?.disconnect(); } catch {}
+                this.publisher = null;
+              }
+            }),
+          ]).then(() => {
+            if (this.client && this.client.status === 'ready') {
+              console.log('✅ Redis connected successfully');
+            } else {
+              console.log('⚠️  Redis not available - app will continue without caching');
+              // Clean up failed clients
+              try {
+                this.client?.disconnect();
+                this.subscriber?.disconnect();
+                this.publisher?.disconnect();
+              } catch {}
               this.client = null;
-            }
-          }),
-          connectWithTimeout(this.subscriber).then(() => {
-            if (!this.subscriber || this.subscriber.status !== 'ready') {
               this.subscriber = null;
-            }
-          }),
-          connectWithTimeout(this.publisher).then(() => {
-            if (!this.publisher || this.publisher.status !== 'ready') {
               this.publisher = null;
             }
-          }),
-        ]).then(() => {
-          if (this.client && this.client.status === 'ready') {
-            console.log('✅ Redis connected successfully');
-          } else {
-            console.log('⚠️  Redis not available - app will continue without caching');
-            // Clean up failed clients
+          }).catch(() => {
+            // If anything fails, just set everything to null
+            try {
+              this.client?.disconnect();
+              this.subscriber?.disconnect();
+              this.publisher?.disconnect();
+            } catch {}
             this.client = null;
             this.subscriber = null;
             this.publisher = null;
-          }
-        });
+          });
+        } catch (redisError) {
+          // If creating Redis clients fails, just set to null
+          console.warn('⚠️  Failed to create Redis clients - skipping Redis');
+          try {
+            this.client?.disconnect();
+            this.subscriber?.disconnect();
+            this.publisher?.disconnect();
+          } catch {}
+          this.client = null;
+          this.subscriber = null;
+          this.publisher = null;
+        }
       }
-    } catch (error) {
-      console.error('⚠️  Redis initialization error (non-critical):', error);
+    } catch (error: any) {
+      // CRITICAL: Catch ANY error and prevent crash
+      console.warn('⚠️  Redis initialization failed (non-critical):', error?.message || error);
       console.log('⚠️  App will continue without Redis');
+      try {
+        this.client?.disconnect();
+        this.subscriber?.disconnect();
+        this.publisher?.disconnect();
+      } catch {}
+      this.client = null;
+      this.subscriber = null;
+      this.publisher = null;
     }
   }
 
