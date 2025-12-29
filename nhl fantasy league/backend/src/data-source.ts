@@ -26,7 +26,7 @@ const getDataSourceOptions = (): DataSourceOptions => {
       url: databaseUrl,
       entities: [entitiesPath],
       migrations: [migrationsPath],
-      synchronize: false, // Never use synchronize in production
+      synchronize: true, // Temporarily enable to create tables, then disable after first run
       logging: !isProduction,
       ssl: isProduction ? { rejectUnauthorized: false } : false,
     };
@@ -42,7 +42,7 @@ const getDataSourceOptions = (): DataSourceOptions => {
     database: process.env.DATABASE_NAME || 'nhl_fantasy',
     entities: [entitiesPath],
     migrations: [migrationsPath],
-    synchronize: !isProduction && process.env.NODE_ENV === 'development',
+    synchronize: true, // Temporarily enable to create tables
     logging: !isProduction,
     ssl: isProduction ? { rejectUnauthorized: false } : false,
   };
