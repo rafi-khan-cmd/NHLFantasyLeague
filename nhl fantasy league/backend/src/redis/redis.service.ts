@@ -22,10 +22,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     
     // Check if we're on Railway (production) - Railway sets these env vars
     // Also check for PORT being set (Railway always sets this)
+    // Also check if we're NOT in development (production mode)
     const isRailway = !!process.env.RAILWAY_ENVIRONMENT || 
                      !!process.env.RAILWAY_SERVICE_NAME ||
-                     !!process.env.RAILWAY_PROJECT_ID ||
-                     (!!process.env.PORT && !isDevelopment); // PORT set + not dev = likely Railway
+                     !!process.env.RAILWAY_PROJECT_ID;
+    
+    // Check if we're in production (not development)
+    const isProduction = !isDevelopment || !!process.env.PORT;
     
     // Check if REDIS_URL is valid (must contain @ to be a real connection string)
     const isValidRedisUrl = redisUrl && 
@@ -36,9 +39,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     // Check if we have valid Redis config
     const hasValidConfig = isValidRedisUrl || (host && port);
 
-    // CRITICAL: If on Railway (or production) without valid Redis config, SKIP ENTIRELY
-    if ((isRailway || (!isDevelopment && !hasValidConfig)) && !hasValidConfig) {
+    // CRITICAL: If in production (Railway or any production) without valid Redis config, SKIP ENTIRELY
+    // This is the MOST aggressive check - if we're not in dev and don't have Redis config, skip it
+    if (isProduction && !hasValidConfig) {
       console.warn('⚠️  Running in production without Redis config - skipping Redis entirely');
+      console.warn('⚠️  NODE_ENV:', nodeEnv, 'PORT:', process.env.PORT, 'Railway:', isRailway);
+      this.client = null;
+      this.subscriber = null;
+      this.publisher = null;
+      return; // Exit IMMEDIATELY - no Redis initialization at all
+    }
+    
+    // Double check: If on Railway specifically without config, skip
+    if (isRailway && !hasValidConfig) {
+      console.warn('⚠️  Running on Railway without Redis config - skipping Redis entirely');
       this.client = null;
       this.subscriber = null;
       this.publisher = null;
