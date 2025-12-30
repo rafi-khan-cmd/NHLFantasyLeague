@@ -1,122 +1,319 @@
-# Supply Chain Digital Twin
+# 🏒 NHL Fantasy League
 
-A comprehensive supply chain simulation and optimization platform that enables users to build scenarios, run simulations, and compare cost/service impacts.
+**Repository**: [https://github.com/rafi-khan-cmd/NHLFantasyLeague](https://github.com/rafi-khan-cmd/NHLFantasyLeague)
+
+A full-stack NHL fantasy league application with live draft, real-time scoring, and comprehensive league management. Built with modern technologies for a portfolio-grade experience.
 
 ## 🚀 Quick Links
 
-- [Getting Started](#getting-started)
-- [GitHub Hosting Guide](./GITHUB_HOSTING.md)
-- [Project Status](./PROJECT_STATUS.md)
-- [Architecture](#architecture)
+- [Setup Guide](./SETUP.md) - Get started locally
+- [Deployment Guide](./DEPLOYMENT.md) - Deploy to production
+- [Scoring System](./SCORING_SYSTEM.md) - How scoring works
 
 ## Architecture
 
-- **Frontend**: Angular (enterprise-style forms + scenario comparison)
-- **Backend**: Spring Boot + job queue (async simulation runs)
-- **Data**: Snowflake for inventory/orders/suppliers + simulation outputs
-- **Compute**: Databricks + PySpark for Monte Carlo simulation + forecasting
-- **Streaming**: Kafka for live shipment/production events (optional)
-- **Infra**: Docker + Kubernetes; CI/CD GitHub Actions
+- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + Zustand
+- **Backend**: NestJS + TypeScript + WebSockets
+- **Database**: PostgreSQL (league data) + Redis (caching, rate limiting, pub/sub)
+- **Deployment**: Vercel (frontend) + Render/Fly.io (backend) + Neon/Supabase (Postgres)
+
+## Features
+
+- 🏒 Live draft room with WebSocket updates
+- 📊 Real-time scoring from NHL play-by-play data
+- 👥 League management (create, join, manage rosters)
+- 🔄 Trade system
+- ⚡ Defensive API design with caching and rate limiting
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Docker and Docker Compose
+- npm or yarn
+
+### Quick Start
+
+1. **Start infrastructure services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Set up backend:**
+   ```bash
+   cd backend
+   npm install
+   cp .env.example .env
+   npm run start:dev
+   ```
+
+3. **Set up frontend:**
+   ```bash
+   cd frontend
+   npm install
+   cp .env.example .env.local
+   npm run dev
+   ```
+
+4. **Run database migrations:**
+   ```bash
+   cd backend
+   npm run migration:run
+   ```
+
+## NHL API Integration
+
+The application uses unofficial NHL API endpoints with defensive design:
+
+- **Caching**: All NHL responses cached in Redis (short TTL)
+- **Rate Limiting**: Prevents API abuse
+- **Idempotency**: Event IDs tracked to prevent double-scoring
+- **Graceful Fallback**: UI shows "live updates delayed" on failures
+
+### Key Endpoints Used
+
+- `GET /v1/gamecenter/{GAME_ID}/play-by-play` - Live events feed
+- `GET /v1/gamecenter/{GAME_ID}/boxscore` - Player/game totals
+- `GET /v1/club-schedule-season/{TEAM}/{SEASON}` - Team schedules
+- `GET /v1/roster/{TEAM}/{SEASON}` - Team rosters
 
 ## Project Structure
 
 ```
-SupplyProject/
-├── frontend/          # Angular application
-├── backend/           # Spring Boot application
-├── databricks/        # PySpark simulation scripts
-├── kafka/             # Kafka configuration and producers
-├── docker/            # Docker configurations
-├── k8s/               # Kubernetes manifests
-└── .github/           # GitHub Actions workflows
+.
+├── backend/          # NestJS API
+│   ├── src/
+│   │   ├── nhl/     # NHL adapter with caching
+│   │   ├── leagues/ # League management
+│   │   ├── drafts/  # Draft logic
+│   │   ├── scoring/ # Fantasy scoring
+│   │   └── gateway/ # WebSocket gateway
+├── frontend/        # Next.js app
+│   ├── app/         # App Router pages
+│   ├── components/  # React components
+│   └── stores/      # Zustand stores
+└── docker-compose.yml
 ```
 
-## Getting Started
+## API Documentation
 
-### 🆓 Free Edition (Recommended - No Setup!)
+### REST Endpoints
 
-The app works in **FREE mock mode** by default - no setup needed!
+#### Leagues
+- `GET /leagues` - Get all leagues
+- `GET /leagues/:id` - Get league details
+- `POST /leagues` - Create a new league
+- `POST /leagues/:id/join` - Join a league
+- `PATCH /leagues/:id/status` - Update league status
 
-```bash
-# Start infrastructure
-docker-compose -f docker/docker-compose.yml up -d
+#### Drafts
+- `GET /drafts/:id` - Get draft state
+- `POST /drafts` - Create a draft for a league
+- `POST /drafts/:id/start` - Start a draft
+- `POST /drafts/:id/pick` - Make a draft pick
 
-# Start backend (uses free mock mode automatically)
-cd backend && ./mvnw spring-boot:run
+#### NHL Data
+- `GET /nhl/teams` - Get all NHL teams
+- `GET /nhl/roster/:team/:season` - Get team roster
+- `GET /nhl/schedule/:team/:season` - Get team schedule
+- `GET /nhl/play-by-play/:gameId` - Get play-by-play events
+- `GET /nhl/boxscore/:gameId` - Get game boxscore
 
-# Start frontend
-cd frontend && npm install && ng serve
+## WebSocket Message Contracts
+
+### Draft Gateway (`/draft`)
+
+**Client → Server:**
+- `draft:join` - Join a draft room
+  ```json
+  { "leagueId": "uuid" }
+  ```
+- `draft:leave` - Leave a draft room
+  ```json
+  { "leagueId": "uuid" }
+  ```
+- `draft:make-pick` - Make a draft pick
+  ```json
+  {
+    "draftId": "uuid",
+    "rosterId": "uuid",
+    "nhlPlayerId": 123,
+    "playerName": "Connor McDavid",
+    "position": "F",
+    "nhlTeam": "EDM"
+  }
+  ```
+- `draft:get-state` - Request current draft state
+  ```json
+  { "draftId": "uuid" }
+  ```
+
+**Server → Client:**
+- `draft:joined` - Confirmation of joining
+- `draft:update` - Draft state update
+- `draft:pick-made` - New pick notification
+- `draft:state` - Current draft state
+- `draft:error` - Error message
+
+### Scoring Gateway (`/scoring`)
+
+**Client → Server:**
+- `scoring:join` - Join scoring updates for a league
+  ```json
+  { "leagueId": "uuid" }
+  ```
+- `scoring:leave` - Leave scoring updates
+- `scoring:get-summary` - Request league scoring summary
+  ```json
+  { "leagueId": "uuid" }
+  ```
+
+**Server → Client:**
+- `scoring:joined` - Confirmation of joining
+- `scoring:update` - Real-time scoring update
+  ```json
+  {
+    "leagueId": "uuid",
+    "rosterId": "uuid",
+    "playerId": 123,
+    "eventType": "goal",
+    "points": 3,
+    "totalPoints": 45.5
+  }
+  ```
+- `scoring:summary` - League standings
+  ```json
+  [
+    {
+      "rosterId": "uuid",
+      "teamName": "Team Name",
+      "totalPoints": 45.5
+    }
+  ]
+  ```
+- `scoring:error` - Error message
+
+## Database Schema
+
+### Tables
+
+**leagues**
+- `id` (UUID, PK)
+- `name` (string)
+- `description` (text, nullable)
+- `commissionerId` (string)
+- `maxTeams` (int, default: 12)
+- `currentTeams` (int, default: 0)
+- `status` (enum: 'draft' | 'active' | 'completed')
+- `settings` (JSONB - scoring rules, roster sizes)
+- `createdAt`, `updatedAt` (timestamps)
+
+**rosters**
+- `id` (UUID, PK)
+- `leagueId` (UUID, FK → leagues)
+- `teamName` (string)
+- `ownerId` (string)
+- `createdAt`, `updatedAt` (timestamps)
+
+**roster_players**
+- `id` (UUID, PK)
+- `rosterId` (UUID, FK → rosters)
+- `nhlPlayerId` (int)
+- `playerName` (string)
+- `position` (string: 'F' | 'D' | 'G')
+- `nhlTeam` (string)
+- `lineupStatus` (enum: 'active' | 'bench')
+- `createdAt` (timestamp)
+
+**drafts**
+- `id` (UUID, PK)
+- `leagueId` (UUID, FK → leagues)
+- `status` (enum: 'pending' | 'in_progress' | 'completed')
+- `currentPick` (int)
+- `currentTeamId` (UUID, nullable)
+- `pickTimeLimitSeconds` (int, default: 60)
+- `pickExpiresAt` (timestamp, nullable)
+- `createdAt`, `updatedAt` (timestamps)
+
+**draft_picks**
+- `id` (UUID, PK)
+- `draftId` (UUID, FK → drafts)
+- `rosterId` (UUID)
+- `pickNumber` (int)
+- `nhlPlayerId` (int)
+- `playerName` (string)
+- `position` (string)
+- `nhlTeam` (string)
+- `createdAt` (timestamp)
+
+**scoring_events**
+- `id` (UUID, PK)
+- `nhlEventId` (string, unique with nhlPlayerId)
+- `nhlGameId` (int)
+- `nhlPlayerId` (int)
+- `rosterId` (UUID)
+- `leagueId` (UUID)
+- `eventType` (string)
+- `pointsAwarded` (float)
+- `eventData` (JSONB)
+- `createdAt` (timestamp)
+
+## Development
+
+- Backend API: http://localhost:3001
+- Frontend: http://localhost:3000
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
+
+## Production Deployment Notes
+
+### Environment Variables
+
+**Backend (.env):**
+```env
+DATABASE_HOST=your-postgres-host
+DATABASE_PORT=5432
+DATABASE_USER=your-user
+DATABASE_PASSWORD=your-password
+DATABASE_NAME=nhl_fantasy
+REDIS_HOST=your-redis-host
+REDIS_PORT=6379
+PORT=3001
+NODE_ENV=production
+NHL_API_BASE_URL=https://api-web.nhle.com/v1
+FRONTEND_URL=https://your-frontend-domain.com
 ```
 
-Open: **http://localhost:4200** - Everything works!
-
-### Quick Setup (With Snowflake/Databricks)
-
-1. **Set up Snowflake database**: Run SQL from `backend/src/main/resources/snowflake-setup.sql` in Snowflake
-2. **Configure environment variables**: Copy `.env.example` to `.env` and fill in your credentials
-3. **Start backend**: `cd backend && ./mvnw spring-boot:run`
-
-The app automatically sets up Snowflake tables on startup if credentials are provided.
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Java 17+
-- Docker and Docker Compose
-- Kubernetes cluster (for deployment)
-- Snowflake account (see [SETUP_SNOWFLAKE_DATABRICKS.md](SETUP_SNOWFLAKE_DATABRICKS.md))
-- Databricks workspace (see [SETUP_SNOWFLAKE_DATABRICKS.md](SETUP_SNOWFLAKE_DATABRICKS.md))
-
-### Local Development
-
-1. **Backend**:
-   ```bash
-   cd backend
-   ./mvnw spring-boot:run
-   ```
-
-2. **Frontend**:
-   ```bash
-   cd frontend
-   npm install
-   ng serve
-   ```
-
-3. **Kafka** (optional):
-   ```bash
-   docker-compose -f docker/kafka-compose.yml up
-   ```
-
-### Docker Deployment
-
-```bash
-docker-compose -f docker/docker-compose.yml up
+**Frontend (.env.local):**
+```env
+NEXT_PUBLIC_API_URL=https://your-api-domain.com
 ```
 
-### Kubernetes Deployment
+### Key Engineering Decisions
 
-```bash
-kubectl apply -f k8s/
-```
+1. **Defensive NHL API Design**: All requests cached, rate-limited, and idempotent
+2. **WebSocket Pub/Sub**: Redis pub/sub for scaling across multiple backend instances
+3. **Event Idempotency**: Unique constraint on `(nhlEventId, nhlPlayerId)` prevents double-scoring
+4. **Graceful Degradation**: UI shows "live updates delayed" when WebSocket disconnects
+5. **Background Polling**: Cron job polls active games every 5 seconds for real-time scoring
 
-## Features
+## 📝 About This Project
 
-- **Scenario Builder**: Create custom supply chain scenarios with supplier delays, demand spikes, etc.
-- **Simulation Engine**: Monte Carlo simulations powered by PySpark
-- **Forecasting**: Demand and supply forecasting
-- **Comparison Dashboard**: Compare multiple scenarios side-by-side
-- **Real-time Events**: Live shipment and production event streaming (optional)
+This is an **NHL Fantasy League** application - a full-stack fantasy hockey platform that allows users to:
+- Create and manage fantasy leagues
+- Conduct live drafts with real-time updates
+- Track player performance with real-time scoring from NHL games
+- Manage rosters, trades, and waivers
+- View detailed statistics and analytics
 
-## Documentation
+**This is NOT a supply chain or digital twin project** - this is specifically an NHL Fantasy League application.
 
-- [Getting Started](#getting-started) - Quick start guide
-- [GitHub Hosting Guide](GITHUB_HOSTING.md) - How to host on GitHub
-- [Project Status](PROJECT_STATUS.md) - Current project status and features
-- [Deployment Guide](DEPLOYMENT.md) - Production deployment instructions
-- [Architecture Overview](ARCHITECTURE.md) - System architecture details
-- [Contributing Guide](CONTRIBUTING.md) - Development guidelines
+## 📄 License
 
-## License
+MIT License - See LICENSE file for details
 
-MIT
+## 🔗 Repository
+
+**GitHub**: [https://github.com/rafi-khan-cmd/NHLFantasyLeague](https://github.com/rafi-khan-cmd/NHLFantasyLeague)
 
