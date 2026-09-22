@@ -1,319 +1,147 @@
-# 🏒 NHL Fantasy League
+# NHL Fantasy League
 
-**Repository**: [https://github.com/rafi-khan-cmd/NHLFantasyLeague](https://github.com/rafi-khan-cmd/NHLFantasyLeague)
-
-A full-stack NHL fantasy league application with live draft, real-time scoring, and comprehensive league management. Built with modern technologies for a portfolio-grade experience.
-
-## 🚀 Quick Links
-
-- [Setup Guide](./SETUP.md) - Get started locally
-- [Deployment Guide](./DEPLOYMENT.md) - Deploy to production
-- [Scoring System](./SCORING_SYSTEM.md) - How scoring works
+A full-stack fantasy hockey platform: create and manage leagues, run a live draft with real-time updates, and score rosters off live NHL play-by-play data. The interesting engineering is on the real-time side — a WebSocket draft room and a scoring pipeline that ingests the unofficial NHL API without double-counting events or hammering the upstream.
 
 ## Architecture
 
-- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + Zustand
-- **Backend**: NestJS + TypeScript + WebSockets
-- **Database**: PostgreSQL (league data) + Redis (caching, rate limiting, pub/sub)
-- **Deployment**: Vercel (frontend) + Render/Fly.io (backend) + Neon/Supabase (Postgres)
+- **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, Zustand
+- **Backend:** NestJS, TypeScript, WebSockets
+- **Data:** PostgreSQL for league data, Redis for caching, rate limiting, and pub/sub
+- **Deploy:** Vercel (frontend), Render/Fly.io (backend), Neon/Supabase (Postgres)
 
 ## Features
 
-- 🏒 Live draft room with WebSocket updates
-- 📊 Real-time scoring from NHL play-by-play data
-- 👥 League management (create, join, manage rosters)
-- 🔄 Trade system
-- ⚡ Defensive API design with caching and rate limiting
+- Live draft room with WebSocket updates and a per-pick timer
+- Real-time scoring from NHL play-by-play data
+- League management: create, join, and manage rosters
+- Trade system
+- Caching, rate limiting, and idempotent event handling around the NHL API
 
-## Setup
+## Getting started
 
 ### Prerequisites
 
 - Node.js 18+
 - Docker and Docker Compose
-- npm or yarn
 
-### Quick Start
+### Run locally
 
-1. **Start infrastructure services:**
-   ```bash
-   docker-compose up -d
-   ```
+Start Postgres and Redis:
 
-2. **Set up backend:**
-   ```bash
-   cd backend
-   npm install
-   cp .env.example .env
-   npm run start:dev
-   ```
-
-3. **Set up frontend:**
-   ```bash
-   cd frontend
-   npm install
-   cp .env.example .env.local
-   npm run dev
-   ```
-
-4. **Run database migrations:**
-   ```bash
-   cd backend
-   npm run migration:run
-   ```
-
-## NHL API Integration
-
-The application uses unofficial NHL API endpoints with defensive design:
-
-- **Caching**: All NHL responses cached in Redis (short TTL)
-- **Rate Limiting**: Prevents API abuse
-- **Idempotency**: Event IDs tracked to prevent double-scoring
-- **Graceful Fallback**: UI shows "live updates delayed" on failures
-
-### Key Endpoints Used
-
-- `GET /v1/gamecenter/{GAME_ID}/play-by-play` - Live events feed
-- `GET /v1/gamecenter/{GAME_ID}/boxscore` - Player/game totals
-- `GET /v1/club-schedule-season/{TEAM}/{SEASON}` - Team schedules
-- `GET /v1/roster/{TEAM}/{SEASON}` - Team rosters
-
-## Project Structure
-
-```
-.
-├── backend/          # NestJS API
-│   ├── src/
-│   │   ├── nhl/     # NHL adapter with caching
-│   │   ├── leagues/ # League management
-│   │   ├── drafts/  # Draft logic
-│   │   ├── scoring/ # Fantasy scoring
-│   │   └── gateway/ # WebSocket gateway
-├── frontend/        # Next.js app
-│   ├── app/         # App Router pages
-│   ├── components/  # React components
-│   └── stores/      # Zustand stores
-└── docker-compose.yml
+```bash
+docker-compose up -d
 ```
 
-## API Documentation
+Backend:
 
-### REST Endpoints
-
-#### Leagues
-- `GET /leagues` - Get all leagues
-- `GET /leagues/:id` - Get league details
-- `POST /leagues` - Create a new league
-- `POST /leagues/:id/join` - Join a league
-- `PATCH /leagues/:id/status` - Update league status
-
-#### Drafts
-- `GET /drafts/:id` - Get draft state
-- `POST /drafts` - Create a draft for a league
-- `POST /drafts/:id/start` - Start a draft
-- `POST /drafts/:id/pick` - Make a draft pick
-
-#### NHL Data
-- `GET /nhl/teams` - Get all NHL teams
-- `GET /nhl/roster/:team/:season` - Get team roster
-- `GET /nhl/schedule/:team/:season` - Get team schedule
-- `GET /nhl/play-by-play/:gameId` - Get play-by-play events
-- `GET /nhl/boxscore/:gameId` - Get game boxscore
-
-## WebSocket Message Contracts
-
-### Draft Gateway (`/draft`)
-
-**Client → Server:**
-- `draft:join` - Join a draft room
-  ```json
-  { "leagueId": "uuid" }
-  ```
-- `draft:leave` - Leave a draft room
-  ```json
-  { "leagueId": "uuid" }
-  ```
-- `draft:make-pick` - Make a draft pick
-  ```json
-  {
-    "draftId": "uuid",
-    "rosterId": "uuid",
-    "nhlPlayerId": 123,
-    "playerName": "Connor McDavid",
-    "position": "F",
-    "nhlTeam": "EDM"
-  }
-  ```
-- `draft:get-state` - Request current draft state
-  ```json
-  { "draftId": "uuid" }
-  ```
-
-**Server → Client:**
-- `draft:joined` - Confirmation of joining
-- `draft:update` - Draft state update
-- `draft:pick-made` - New pick notification
-- `draft:state` - Current draft state
-- `draft:error` - Error message
-
-### Scoring Gateway (`/scoring`)
-
-**Client → Server:**
-- `scoring:join` - Join scoring updates for a league
-  ```json
-  { "leagueId": "uuid" }
-  ```
-- `scoring:leave` - Leave scoring updates
-- `scoring:get-summary` - Request league scoring summary
-  ```json
-  { "leagueId": "uuid" }
-  ```
-
-**Server → Client:**
-- `scoring:joined` - Confirmation of joining
-- `scoring:update` - Real-time scoring update
-  ```json
-  {
-    "leagueId": "uuid",
-    "rosterId": "uuid",
-    "playerId": 123,
-    "eventType": "goal",
-    "points": 3,
-    "totalPoints": 45.5
-  }
-  ```
-- `scoring:summary` - League standings
-  ```json
-  [
-    {
-      "rosterId": "uuid",
-      "teamName": "Team Name",
-      "totalPoints": 45.5
-    }
-  ]
-  ```
-- `scoring:error` - Error message
-
-## Database Schema
-
-### Tables
-
-**leagues**
-- `id` (UUID, PK)
-- `name` (string)
-- `description` (text, nullable)
-- `commissionerId` (string)
-- `maxTeams` (int, default: 12)
-- `currentTeams` (int, default: 0)
-- `status` (enum: 'draft' | 'active' | 'completed')
-- `settings` (JSONB - scoring rules, roster sizes)
-- `createdAt`, `updatedAt` (timestamps)
-
-**rosters**
-- `id` (UUID, PK)
-- `leagueId` (UUID, FK → leagues)
-- `teamName` (string)
-- `ownerId` (string)
-- `createdAt`, `updatedAt` (timestamps)
-
-**roster_players**
-- `id` (UUID, PK)
-- `rosterId` (UUID, FK → rosters)
-- `nhlPlayerId` (int)
-- `playerName` (string)
-- `position` (string: 'F' | 'D' | 'G')
-- `nhlTeam` (string)
-- `lineupStatus` (enum: 'active' | 'bench')
-- `createdAt` (timestamp)
-
-**drafts**
-- `id` (UUID, PK)
-- `leagueId` (UUID, FK → leagues)
-- `status` (enum: 'pending' | 'in_progress' | 'completed')
-- `currentPick` (int)
-- `currentTeamId` (UUID, nullable)
-- `pickTimeLimitSeconds` (int, default: 60)
-- `pickExpiresAt` (timestamp, nullable)
-- `createdAt`, `updatedAt` (timestamps)
-
-**draft_picks**
-- `id` (UUID, PK)
-- `draftId` (UUID, FK → drafts)
-- `rosterId` (UUID)
-- `pickNumber` (int)
-- `nhlPlayerId` (int)
-- `playerName` (string)
-- `position` (string)
-- `nhlTeam` (string)
-- `createdAt` (timestamp)
-
-**scoring_events**
-- `id` (UUID, PK)
-- `nhlEventId` (string, unique with nhlPlayerId)
-- `nhlGameId` (int)
-- `nhlPlayerId` (int)
-- `rosterId` (UUID)
-- `leagueId` (UUID)
-- `eventType` (string)
-- `pointsAwarded` (float)
-- `eventData` (JSONB)
-- `createdAt` (timestamp)
-
-## Development
-
-- Backend API: http://localhost:3001
-- Frontend: http://localhost:3000
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
-
-## Production Deployment Notes
-
-### Environment Variables
-
-**Backend (.env):**
-```env
-DATABASE_HOST=your-postgres-host
-DATABASE_PORT=5432
-DATABASE_USER=your-user
-DATABASE_PASSWORD=your-password
-DATABASE_NAME=nhl_fantasy
-REDIS_HOST=your-redis-host
-REDIS_PORT=6379
-PORT=3001
-NODE_ENV=production
-NHL_API_BASE_URL=https://api-web.nhle.com/v1
-FRONTEND_URL=https://your-frontend-domain.com
+```bash
+cd backend
+npm install
+cp .env.example .env
+npm run migration:run
+npm run start:dev        # http://localhost:3001
 ```
 
-**Frontend (.env.local):**
-```env
-NEXT_PUBLIC_API_URL=https://your-api-domain.com
+Frontend:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev              # http://localhost:3000
 ```
 
-### Key Engineering Decisions
+## NHL API integration
 
-1. **Defensive NHL API Design**: All requests cached, rate-limited, and idempotent
-2. **WebSocket Pub/Sub**: Redis pub/sub for scaling across multiple backend instances
-3. **Event Idempotency**: Unique constraint on `(nhlEventId, nhlPlayerId)` prevents double-scoring
-4. **Graceful Degradation**: UI shows "live updates delayed" when WebSocket disconnects
-5. **Background Polling**: Cron job polls active games every 5 seconds for real-time scoring
+The app reads from the unofficial NHL API (`https://api-web.nhle.com/v1`) and wraps it defensively:
 
-## 📝 About This Project
+- **Caching** — responses are cached in Redis on a short TTL
+- **Rate limiting** — protects against upstream throttling
+- **Idempotency** — event IDs are tracked so a goal is never scored twice
+- **Graceful fallback** — the UI shows "live updates delayed" when a request fails
 
-This is an **NHL Fantasy League** application - a full-stack fantasy hockey platform that allows users to:
-- Create and manage fantasy leagues
-- Conduct live drafts with real-time updates
-- Track player performance with real-time scoring from NHL games
-- Manage rosters, trades, and waivers
-- View detailed statistics and analytics
+Endpoints used include play-by-play (`/gamecenter/{gameId}/play-by-play`), boxscore, team schedules, and rosters. A background job polls active games every few seconds to drive live scoring.
 
-**This is NOT a supply chain or digital twin project** - this is specifically an NHL Fantasy League application.
+## Project structure
 
-## 📄 License
+```
+backend/          NestJS API
+  src/
+    nhl/          NHL adapter with caching
+    leagues/      league management
+    drafts/       draft logic
+    scoring/      fantasy scoring
+    gateway/      WebSocket gateways (draft, scoring, chat)
+frontend/         Next.js app
+  app/            App Router pages
+  components/     React components
+  stores/         Zustand stores
+docker-compose.yml
+```
 
-MIT License - See LICENSE file for details
+More detail lives in [SETUP.md](./SETUP.md), [DEPLOYMENT.md](./DEPLOYMENT.md), and [SCORING_SYSTEM.md](./SCORING_SYSTEM.md).
 
-## 🔗 Repository
+## REST API
 
-**GitHub**: [https://github.com/rafi-khan-cmd/NHLFantasyLeague](https://github.com/rafi-khan-cmd/NHLFantasyLeague)
+**Leagues** — `GET /leagues`, `GET /leagues/:id`, `POST /leagues`, `POST /leagues/:id/join`, `PATCH /leagues/:id/status`
 
+**Drafts** — `GET /drafts/:id`, `POST /drafts`, `POST /drafts/:id/start`, `POST /drafts/:id/pick`
+
+**NHL data** — `GET /nhl/teams`, `GET /nhl/roster/:team/:season`, `GET /nhl/schedule/:team/:season`, `GET /nhl/play-by-play/:gameId`, `GET /nhl/boxscore/:gameId`
+
+## WebSocket contracts
+
+### Draft gateway (`/draft`)
+
+Client to server: `draft:join`, `draft:leave`, `draft:make-pick`, `draft:get-state`.
+Server to client: `draft:joined`, `draft:update`, `draft:pick-made`, `draft:state`, `draft:error`.
+
+A pick payload looks like:
+
+```json
+{ "draftId": "uuid", "rosterId": "uuid", "nhlPlayerId": 123, "playerName": "Connor McDavid", "position": "F", "nhlTeam": "EDM" }
+```
+
+### Scoring gateway (`/scoring`)
+
+Client to server: `scoring:join`, `scoring:leave`, `scoring:get-summary`.
+Server to client: `scoring:joined`, `scoring:update`, `scoring:summary`, `scoring:error`.
+
+A scoring update looks like:
+
+```json
+{ "leagueId": "uuid", "rosterId": "uuid", "playerId": 123, "eventType": "goal", "points": 3, "totalPoints": 45.5 }
+```
+
+## Database schema
+
+Core tables: `leagues`, `rosters`, `roster_players`, `drafts`, `draft_picks`, `scoring_events`.
+
+Highlights:
+
+- `leagues.settings` is JSONB holding scoring rules and roster sizes; status is one of `draft | active | completed`.
+- `roster_players` tracks each player's `position` (`F | D | G`) and `lineupStatus` (`active | bench`).
+- `scoring_events` has a unique constraint on `(nhlEventId, nhlPlayerId)` — this is what makes scoring idempotent.
+
+## Key engineering decisions
+
+1. **Defensive NHL API design** — every request is cached, rate-limited, and idempotent.
+2. **Redis pub/sub for WebSockets** — lets scoring updates fan out across multiple backend instances.
+3. **Event idempotency** — the unique constraint on `(nhlEventId, nhlPlayerId)` prevents double-scoring.
+4. **Graceful degradation** — the UI stays usable and flags delays when a socket drops.
+5. **Background polling** — a cron job polls active games every few seconds for live scoring.
+
+## Environment variables
+
+Backend (`.env`): `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`, `REDIS_HOST`, `REDIS_PORT`, `PORT`, `NODE_ENV`, `NHL_API_BASE_URL`, `FRONTEND_URL`.
+
+Frontend (`.env.local`): `NEXT_PUBLIC_API_URL`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Author
+
+Rafiul Alam Khan
+[GitHub](https://github.com/rafi-khan-cmd) · [LinkedIn](https://www.linkedin.com/in/rafiul-alam-k-3a20392b0/) · alamkhanrafiul@gmail.com

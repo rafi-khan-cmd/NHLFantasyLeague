@@ -38,7 +38,7 @@ export class ScoringGateway implements OnGatewayConnection, OnGatewayDisconnect,
           this.handleScoringUpdate(message);
         });
       } else {
-        console.log('⚠️  Redis not available - scoring pub/sub disabled');
+        console.log(' Redis not available - scoring pub/sub disabled');
       }
     }, 1000);
   }

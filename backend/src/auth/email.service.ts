@@ -48,7 +48,7 @@ export class EmailService {
     try {
       await this.redisService.set(cacheKey, code, 600);
     } catch (error) {
-      this.logger.warn('⚠️  Redis not available for storing verification code - using database only');
+      this.logger.warn(' Redis not available for storing verification code - using database only');
     }
 
     // Store code in database as a fallback (or primary if Redis is unavailable)
@@ -56,9 +56,9 @@ export class EmailService {
       // Delete any old codes for this email first
       await this.emailVerificationRepository.delete({ email });
       await this.emailVerificationRepository.save({ email, code, expiresAt });
-      this.logger.log(`✅ Verification code stored in database for ${email}`);
+      this.logger.log(`Verification code stored in database for ${email}`);
     } catch (error: any) {
-      this.logger.error(`❌ Failed to store verification code in database for ${email}:`, error.message);
+      this.logger.error(`Failed to store verification code in database for ${email}:`, error.message);
       // If DB fails, we can't proceed with verification, so re-throw
       throw new Error('Failed to store verification code. Please try again.');
     }
@@ -76,7 +76,7 @@ export class EmailService {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #003e7e 0%, #c8102e 100%); color: white; border-radius: 10px;">
               <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: white; margin: 0;">🏒 NHL Fantasy League</h1>
+                <h1 style="color: white; margin: 0;">NHL Fantasy League</h1>
               </div>
               <div style="background: rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 8px; backdrop-filter: blur(10px);">
                 <h2 style="color: white; margin-top: 0;">Email Verification</h2>
@@ -98,16 +98,16 @@ export class EmailService {
             </div>
           `,
         });
-        this.logger.log(`✅ Verification email sent to ${email}`);
+        this.logger.log(`Verification email sent to ${email}`);
       } catch (error: any) {
-        this.logger.error(`❌ Failed to send email to ${email}:`, error.message);
+        this.logger.error(`Failed to send email to ${email}:`, error.message);
         // Fallback: log to console if email fails
-        this.logger.log(`📧 Verification code for ${email}: ${code} (email sending failed, check server logs)`);
+        this.logger.log(`Verification code for ${email}: ${code} (email sending failed, check server logs)`);
       }
     } else {
       // No SMTP configured, log to console
-      this.logger.log(`📧 Verification code for ${email}: ${code}`);
-      this.logger.warn(`⚠️  SMTP not configured. Add SMTP_USER and SMTP_PASS to .env to enable email sending.`);
+      this.logger.log(`Verification code for ${email}: ${code}`);
+      this.logger.warn(` SMTP not configured. Add SMTP_USER and SMTP_PASS to .env to enable email sending.`);
     }
 
     return code;
@@ -124,7 +124,7 @@ export class EmailService {
     try {
       storedCode = await this.redisService.get(cacheKey);
     } catch (error) {
-      this.logger.warn('⚠️  Redis not available for fetching verification code');
+      this.logger.warn(' Redis not available for fetching verification code');
     }
 
     // If not in Redis or Redis failed, try fetching from database
@@ -159,7 +159,7 @@ export class EmailService {
     try {
       await this.redisService.set(verifiedKey, 'true', 1800);
     } catch (error) {
-      this.logger.warn('⚠️  Redis not available for storing verification status');
+      this.logger.warn(' Redis not available for storing verification status');
     }
 
     // Store verified status in database
@@ -184,7 +184,7 @@ export class EmailService {
       // Ignore Redis errors
     }
 
-    this.logger.log(`✅ Email ${email} verified successfully`);
+    this.logger.log(`Email ${email} verified successfully`);
     return true;
   }
 

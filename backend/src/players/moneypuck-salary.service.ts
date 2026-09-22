@@ -49,7 +49,7 @@ export class MoneyPuckSalaryService {
       const estimatedSalary = await this.estimateSalaryFromStats(nhlPlayerId, playerName);
       if (estimatedSalary && estimatedSalary > 0) {
         await this.redisService.set(cacheKey, estimatedSalary.toString(), 604800);
-        this.logger.log(`💰 ${playerName} (ID: ${nhlPlayerId}): $${(estimatedSalary / 1000000).toFixed(2)}M (based on stats)`);
+        this.logger.log(`${playerName} (ID: ${nhlPlayerId}): $${(estimatedSalary / 1000000).toFixed(2)}M (based on stats)`);
         return estimatedSalary;
       }
 
@@ -57,14 +57,14 @@ export class MoneyPuckSalaryService {
       const defaultSalary = this.getDefaultSalaryByPosition(playerName, nhlPlayerId);
       if (defaultSalary > 0) {
         await this.redisService.set(cacheKey, defaultSalary.toString(), 604800);
-        this.logger.log(`💰 ${playerName} (ID: ${nhlPlayerId}): $${(defaultSalary / 1000000).toFixed(2)}M (default)`);
+        this.logger.log(`${playerName} (ID: ${nhlPlayerId}): $${(defaultSalary / 1000000).toFixed(2)}M (default)`);
         return defaultSalary;
       }
 
       // Final fallback: minimum salary
       const minSalary = 1000000; // $1M minimum
       await this.redisService.set(cacheKey, minSalary.toString(), 604800);
-      this.logger.warn(`⚠️  ${playerName} (ID: ${nhlPlayerId}): Using minimum salary $${(minSalary / 1000000).toFixed(2)}M`);
+      this.logger.warn(` ${playerName} (ID: ${nhlPlayerId}): Using minimum salary $${(minSalary / 1000000).toFixed(2)}M`);
       return minSalary;
     } catch (error) {
       this.logger.warn(`Failed to fetch salary for player ${playerName} (${nhlPlayerId}):`, error);
@@ -178,11 +178,11 @@ export class MoneyPuckSalaryService {
             // If less than 1 million, assume it's in millions
             if (numericSalary < 1000000) {
               const result = Math.round(numericSalary * 1000000);
-              this.logger.log(`✅ Got NHL salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
+              this.logger.log(`Got NHL salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
               return result;
             }
             const result = Math.round(numericSalary);
-            this.logger.log(`✅ Got NHL salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
+            this.logger.log(`Got NHL salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
             return result;
           }
         }
@@ -220,11 +220,11 @@ export class MoneyPuckSalaryService {
               if (numericSalary > 0) {
                 if (numericSalary < 1000000) {
                   const result = Math.round(numericSalary * 1000000);
-                  this.logger.log(`✅ Got NHL roster salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
+                  this.logger.log(`Got NHL roster salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
                   return result;
                 }
                 const result = Math.round(numericSalary);
-                this.logger.log(`✅ Got NHL roster salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
+                this.logger.log(`Got NHL roster salary for ${playerName}: $${(result / 1000000).toFixed(2)}M`);
                 return result;
               }
             }
@@ -391,7 +391,7 @@ export class MoneyPuckSalaryService {
             }
           }
 
-          this.logger.log(`💰 Estimated salary for ${playerName}: $${(estimatedSalary / 1000000).toFixed(2)}M (PPG: ${pointsPerGame.toFixed(2)}, ${points}pts/${games}gp)`);
+          this.logger.log(`Estimated salary for ${playerName}: $${(estimatedSalary / 1000000).toFixed(2)}M (PPG: ${pointsPerGame.toFixed(2)}, ${points}pts/${games}gp)`);
           return estimatedSalary;
         }
       }
@@ -439,7 +439,7 @@ export class MoneyPuckSalaryService {
   ): Promise<Map<number, number>> {
     const salaryMap = new Map<number, number>();
     
-    this.logger.log(`🔄 Starting batch salary update for ${players.length} players (forceRefresh: ${forceRefresh})`);
+    this.logger.log(`Starting batch salary update for ${players.length} players (forceRefresh: ${forceRefresh})`);
     
     for (const player of players) {
       try {
@@ -451,16 +451,16 @@ export class MoneyPuckSalaryService {
         );
         if (salary && salary > 0) {
           salaryMap.set(player.nhlPlayerId, salary);
-          this.logger.log(`✅ ${player.playerName}: $${(salary / 1000000).toFixed(2)}M`);
+          this.logger.log(`${player.playerName}: $${(salary / 1000000).toFixed(2)}M`);
         } else {
-          this.logger.warn(`❌ No salary found for ${player.playerName} (${player.nhlPlayerId}) on ${player.teamAbbrev}`);
+          this.logger.warn(`No salary found for ${player.playerName} (${player.nhlPlayerId}) on ${player.teamAbbrev}`);
         }
       } catch (error) {
         this.logger.warn(`Failed to get salary for ${player.playerName}:`, error);
       }
     }
     
-    this.logger.log(`✅ Batch update complete: ${salaryMap.size}/${players.length} salaries found`);
+    this.logger.log(`Batch update complete: ${salaryMap.size}/${players.length} salaries found`);
     return salaryMap;
   }
 }

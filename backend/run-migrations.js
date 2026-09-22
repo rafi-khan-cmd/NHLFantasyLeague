@@ -26,15 +26,15 @@ const dataSource = new DataSource(config);
 
 dataSource.initialize()
   .then(() => {
-    console.log('✅ Database connected');
+    console.log('Database connected');
     return dataSource.runMigrations();
   })
   .then(() => {
-    console.log('✅ Migrations completed');
+    console.log('Migrations completed');
     process.exit(0);
   })
   .catch((err) => {
-    console.error('⚠️  Migration error:', err.message);
+    console.error(' Migration error:', err.message);
     console.error(err);
     process.exit(0);
   });

@@ -35,15 +35,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     // CRITICAL: If production (especially Railway) without Redis config, disable immediately
     if ((isProduction || isRailway) && !hasValidConfig) {
       this.disabled = true;
-      console.warn('⚠️  Redis DISABLED in constructor - production without config');
-      console.warn('⚠️  Environment check - Railway:', isRailway, 'Production:', isProduction, 'NODE_ENV:', nodeEnv, 'PORT:', process.env.PORT);
+      console.warn(' Redis DISABLED in constructor - production without config');
+      console.warn(' Environment check - Railway:', isRailway, 'Production:', isProduction, 'NODE_ENV:', nodeEnv, 'PORT:', process.env.PORT);
     }
   }
 
   async onModuleInit() {
     // CRITICAL: If disabled in constructor, exit IMMEDIATELY - don't do ANYTHING
     if (this.disabled) {
-      console.warn('⚠️  Redis was disabled in constructor - skipping onModuleInit entirely');
+      console.warn(' Redis was disabled in constructor - skipping onModuleInit entirely');
       return;
     }
     
@@ -78,8 +78,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     // CRITICAL: If in production (Railway or any production) without valid Redis config, SKIP ENTIRELY
     // This is the MOST aggressive check - if we're not in dev and don't have Redis config, skip it
     if (isProduction && !hasValidConfig) {
-      console.warn('⚠️  Running in production without Redis config - skipping Redis entirely');
-      console.warn('⚠️  NODE_ENV:', nodeEnv, 'PORT:', process.env.PORT, 'Railway:', isRailway);
+      console.warn(' Running in production without Redis config - skipping Redis entirely');
+      console.warn(' NODE_ENV:', nodeEnv, 'PORT:', process.env.PORT, 'Railway:', isRailway);
       this.client = null;
       this.subscriber = null;
       this.publisher = null;
@@ -88,7 +88,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     
     // Double check: If on Railway specifically without config, skip
     if (isRailway && !hasValidConfig) {
-      console.warn('⚠️  Running on Railway without Redis config - skipping Redis entirely');
+      console.warn(' Running on Railway without Redis config - skipping Redis entirely');
       this.client = null;
       this.subscriber = null;
       this.publisher = null;
@@ -97,7 +97,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     // In production (not Railway, but still production) without config, skip
     if (!isDevelopment && !hasValidConfig) {
-      console.warn('⚠️  Redis not configured in production - skipping Redis entirely');
+      console.warn(' Redis not configured in production - skipping Redis entirely');
       this.client = null;
       this.subscriber = null;
       this.publisher = null;
@@ -110,7 +110,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       // In production, ONLY initialize if we have valid config
       if (!isDevelopment && !hasValidConfig) {
-        console.warn('⚠️  Redis not configured in production - skipping Redis entirely');
+        console.warn(' Redis not configured in production - skipping Redis entirely');
         this.client = null;
         this.subscriber = null;
         this.publisher = null;
@@ -119,20 +119,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       // In development, allow localhost fallback
       if (isDevelopment && !hasValidConfig) {
-        console.log('⚠️  Using localhost Redis (development mode)');
+        console.log(' Using localhost Redis (development mode)');
       }
       let redisOptions: any;
       
       if (isValidRedisUrl) {
         redisOptions = { url: redisUrl };
-        console.log('✅ Using REDIS_URL for connection');
+        console.log('Using REDIS_URL for connection');
       } else if (host && port) {
         redisOptions = {
           host,
           port: parseInt(port),
           password: password || undefined,
         };
-        console.log(`✅ Using REDIS_HOST/REDIS_PORT: ${host}:${port}`);
+        console.log(`Using REDIS_HOST/REDIS_PORT: ${host}:${port}`);
       } else if (isDevelopment) {
         redisOptions = {
           host: 'localhost',
@@ -140,7 +140,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         };
       } else {
         // Should not reach here, but just in case
-        console.warn('⚠️  No Redis config - skipping');
+        console.warn(' No Redis config - skipping');
         this.client = null;
         this.subscriber = null;
         this.publisher = null;
@@ -149,7 +149,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       // CRITICAL: Double-check disabled flag before creating ANY Redis clients
       if (this.disabled) {
-        console.warn('⚠️  Redis disabled - not creating clients');
+        console.warn(' Redis disabled - not creating clients');
         return;
       }
       
@@ -222,9 +222,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             }),
           ]).then(() => {
             if (this.client && this.client.status === 'ready') {
-              console.log('✅ Redis connected successfully');
+              console.log('Redis connected successfully');
             } else {
-              console.log('⚠️  Redis not available - app will continue without caching');
+              console.log(' Redis not available - app will continue without caching');
               // Clean up failed clients
               try {
                 this.client?.disconnect();
@@ -248,7 +248,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           });
         } catch (redisError) {
           // If creating Redis clients fails, just set to null
-          console.warn('⚠️  Failed to create Redis clients - skipping Redis');
+          console.warn(' Failed to create Redis clients - skipping Redis');
           try {
             this.client?.disconnect();
             this.subscriber?.disconnect();
@@ -261,8 +261,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error: any) {
       // CRITICAL: Catch ANY error and prevent crash
-      console.warn('⚠️  Redis initialization failed (non-critical):', error?.message || error);
-      console.log('⚠️  App will continue without Redis');
+      console.warn(' Redis initialization failed (non-critical):', error?.message || error);
+      console.log(' App will continue without Redis');
       try {
         this.client?.disconnect();
         this.subscriber?.disconnect();

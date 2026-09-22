@@ -59,34 +59,29 @@ export default function Home() {
   // Show public landing page if not authenticated
   if (!isAuthenticated) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-8">
-        <div className="max-w-4xl mx-auto text-center animate-fade-in">
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-8">
+        <div className="max-w-3xl mx-auto text-center">
           <div className="mb-8">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
-              <span className="text-5xl">🏒</span>
-            </div>
-            <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="text-5xl" aria-hidden>🏒</span>
+            <h1 className="mt-6 text-5xl md:text-6xl font-bold tracking-tight">
               NHL Fantasy League
             </h1>
-            <p className="text-xl md:text-2xl text-gray-700 mb-4 max-w-2xl mx-auto">
-              Real-time NHL fantasy league with live scoring and comprehensive league management
-            </p>
-            <p className="text-lg text-gray-600 mb-12">
-              Build your dream team, compete with friends, and track your players' performance
+            <p className="mt-5 text-lg md:text-xl text-slate-300 max-w-2xl mx-auto">
+              Run a fantasy hockey league with a live draft room and scoring driven by real NHL play-by-play data.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="/register"
-              className="inline-block px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 text-lg font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+              className="inline-block px-7 py-3 bg-nhl-blue text-white rounded-lg hover:bg-nhl-blue-dark text-lg font-semibold transition-colors"
             >
-              Get Started Free
+              Create an account
             </Link>
             <Link
               href="/login"
-              className="inline-block px-8 py-4 border-2 border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 text-lg font-semibold transition-all transform hover:scale-105"
+              className="inline-block px-7 py-3 border border-slate-600 text-slate-100 rounded-lg hover:bg-slate-800 text-lg font-medium transition-colors"
             >
-              Sign In
+              Sign in
             </Link>
           </div>
         </div>

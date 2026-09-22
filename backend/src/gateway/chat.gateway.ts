@@ -43,7 +43,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         });
       });
     } else {
-      console.log('⚠️  Redis not available - chat pub/sub disabled');
+      console.log(' Redis not available - chat pub/sub disabled');
     }
   }
 

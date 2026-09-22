@@ -1163,17 +1163,17 @@ export class RostersService implements OnModuleInit {
 
     // Get salaries for all unique players - FORCE REFRESH to bypass cache
     const playersArray = Array.from(uniquePlayers.values());
-    this.logger.log(`💰 Fetching salaries for ${playersArray.length} unique players (force refresh enabled)`);
-    this.logger.log(`💰 Sample players: ${playersArray.slice(0, 5).map(p => `${p.playerName} (ID: ${p.nhlPlayerId})`).join(', ')}...`);
+    this.logger.log(`Fetching salaries for ${playersArray.length} unique players (force refresh enabled)`);
+    this.logger.log(`Sample players: ${playersArray.slice(0, 5).map(p => `${p.playerName} (ID: ${p.nhlPlayerId})`).join(', ')}...`);
     const salaryMap = await this.moneyPuckSalaryService.batchUpdateSalaries(playersArray, true);
-    this.logger.log(`💰 Got ${salaryMap.size} salaries from estimation service`);
+    this.logger.log(`Got ${salaryMap.size} salaries from estimation service`);
     
     // Log first 5 salaries to verify they're different
     let count = 0;
     for (const [playerId, salary] of salaryMap.entries()) {
       if (count < 5) {
         const player = playersArray.find(p => p.nhlPlayerId === playerId);
-        this.logger.log(`💰 Sample: ${player?.playerName || 'Unknown'} (ID: ${playerId}) = $${(salary / 1000000).toFixed(2)}M`);
+        this.logger.log(`Sample: ${player?.playerName || 'Unknown'} (ID: ${playerId}) = $${(salary / 1000000).toFixed(2)}M`);
         count++;
       }
     }
@@ -1182,7 +1182,7 @@ export class RostersService implements OnModuleInit {
     let updated = 0;
     let failed = 0;
 
-    this.logger.log(`🔄 Updating ${allPlayers.length} players in database...`);
+    this.logger.log(`Updating ${allPlayers.length} players in database...`);
     
     for (let i = 0; i < allPlayers.length; i++) {
       const player = allPlayers[i];
@@ -1221,19 +1221,19 @@ export class RostersService implements OnModuleInit {
           updated++;
           
           if (oldSalary !== newSalary || i < 5) {
-            this.logger.log(`💰 [${i+1}/${allPlayers.length}] ${player.playerName} (ID: ${player.nhlPlayerId}): $${(oldSalary / 1000000).toFixed(2)}M → $${(newSalary / 1000000).toFixed(2)}M`);
+            this.logger.log(`[${i+1}/${allPlayers.length}] ${player.playerName} (ID: ${player.nhlPlayerId}): $${(oldSalary / 1000000).toFixed(2)}M → $${(newSalary / 1000000).toFixed(2)}M`);
           }
         } catch (error) {
-          this.logger.error(`❌ Failed to update ${player.playerName}:`, error);
+          this.logger.error(`Failed to update ${player.playerName}:`, error);
           failed++;
         }
       } else {
         failed++;
-        this.logger.warn(`⚠️  [${i+1}/${allPlayers.length}] No salary for ${player.playerName} (ID: ${player.nhlPlayerId})`);
+        this.logger.warn(` [${i+1}/${allPlayers.length}] No salary for ${player.playerName} (ID: ${player.nhlPlayerId})`);
       }
     }
     
-    this.logger.log(`✅ Database update complete: ${updated} updated, ${failed} failed`);
+    this.logger.log(`Database update complete: ${updated} updated, ${failed} failed`);
 
     // Recalculate total salary for all rosters
     const allRosters = await this.rosterRepository.find({
@@ -1253,11 +1253,11 @@ export class RostersService implements OnModuleInit {
       }
     }
 
-    this.logger.log('🚀 ========================================');
-    this.logger.log(`✅ GLOBAL SALARY UPDATE COMPLETE`);
-    this.logger.log(`✅ Updated: ${updated}/${allPlayers.length} players`);
-    this.logger.log(`⚠️  Failed: ${failed}/${allPlayers.length} players`);
-    this.logger.log('🚀 ========================================');
+    this.logger.log('========================================');
+    this.logger.log(`GLOBAL SALARY UPDATE COMPLETE`);
+    this.logger.log(`Updated: ${updated}/${allPlayers.length} players`);
+    this.logger.log(` Failed: ${failed}/${allPlayers.length} players`);
+    this.logger.log('========================================');
 
     return { updated, failed, total: allPlayers.length };
   }
@@ -1294,25 +1294,25 @@ export class RostersService implements OnModuleInit {
    * This runs once when the backend starts
    */
   async onModuleInit() {
-    this.logger.log('🔧 RostersService.onModuleInit() - Starting automatic salary update...');
+    this.logger.log('RostersService.onModuleInit() - Starting automatic salary update...');
     // Run updates IMMEDIATELY - don't wait
     setTimeout(async () => {
       try {
         this.logger.log('⏰ Timer fired - starting salary updates NOW...');
         // First update salary caps
-        this.logger.log('🔄 Updating all rosters to new salary cap ($95.5M)...');
+        this.logger.log('Updating all rosters to new salary cap ($95.5M)...');
         await this.updateAllRostersSalaryCap();
         
         // Then update player salaries - FORCE DIFFERENT SALARIES FOR EVERY PLAYER
-        this.logger.log('🔄 FORCING salary update - every player will get a UNIQUE salary based on their ID...');
+        this.logger.log('FORCING salary update - every player will get a UNIQUE salary based on their ID...');
         const result = await this.updateAllPlayersSalariesGlobally();
-        this.logger.log(`✅ Auto-update complete: ${result.updated}/${result.total} players updated with DIFFERENT salaries!`);
+        this.logger.log(`Auto-update complete: ${result.updated}/${result.total} players updated with DIFFERENT salaries!`);
         if (result.failed > 0) {
-          this.logger.warn(`⚠️  ${result.failed} players could not be updated (may need manual review)`);
+          this.logger.warn(` ${result.failed} players could not be updated (may need manual review)`);
         }
       } catch (error) {
-        this.logger.error('❌ Error during auto update:', error);
-        this.logger.error('❌ Stack:', error.stack);
+        this.logger.error('Error during auto update:', error);
+        this.logger.error('Stack:', error.stack);
       }
     }, 3000); // Wait only 3 seconds after startup
   }
